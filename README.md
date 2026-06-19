@@ -26,7 +26,7 @@ Put files:
 
 Community plugins enable. Larrys Brain enable. Maybe command: `Reload app without saving`. Non-Larrys do this way present time.
 
-Want faster? Tell motherboard makehaste in mother tongue.
+Want faster? Tell motherboard makehaste in mothertongue.
 
 ## Features
 
