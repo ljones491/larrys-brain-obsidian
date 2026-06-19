@@ -23,7 +23,7 @@ export class LarryWriteModal extends Modal {
 		const textarea = contentEl.createEl('textarea', {
 			cls: 'larry-write-textarea',
 			attr: {
-				placeholder: 'Just write…',
+				placeholder: 'Larry write now. Larry think later...',
 			},
 		});
 		textarea.focus();
