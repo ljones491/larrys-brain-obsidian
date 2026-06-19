@@ -61,12 +61,16 @@ function pickSubject(text: string): string {
 	return best?.display ?? '';
 }
 
-/** Strip leading determiners, collapse whitespace, and cap the length. */
+/** Trailing/leading punctuation to peel off a phrase (apostrophes kept). */
+const EDGE_PUNCTUATION = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}']+$/gu;
+
+/** Strip leading determiners and punctuation, collapse whitespace, cap length. */
 function cleanPhrase(phrase: string): string {
 	const cleaned = phrase
 		.replace(/\s+/g, ' ')
 		.trim()
 		.replace(LEADING_DETERMINER, '')
+		.replace(EDGE_PUNCTUATION, '')
 		.trim();
 	return truncateAtWord(cleaned, MAX_SUBJECT_LENGTH);
 }
@@ -81,5 +85,5 @@ function truncateAtWord(text: string, max: number): string {
 
 /** Capitalize the first letter of each word. */
 function titleCase(phrase: string): string {
-	return phrase.replace(/\b\w/g, (c) => c.toUpperCase());
+	return phrase.replace(/(^|\s)(\w)/g, (_, sep, c) => sep + c.toUpperCase());
 }
