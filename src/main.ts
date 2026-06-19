@@ -1,14 +1,11 @@
-import {
-	Modal,
-	Plugin,
-} from 'obsidian';
+import { Notice, Plugin } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	LarrysBrainSettings,
 	LarrysBrainSettingTab,
 } from './settings';
-
-// Remember to rename these classes and interfaces!
+import { LarryWriteModal } from './ui/larry-write-modal';
+import { createDumpNote } from './note';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -16,8 +13,23 @@ export default class LarrysBrainPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		this.addCommand({
+			id: 'larry-write',
+			name: 'Larry write',
+			callback: () => this.openLarryWrite(),
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
+	}
+
+	private openLarryWrite(): void {
+		new LarryWriteModal(this.app, (text) => {
+			createDumpNote(this.app, text).catch((err: unknown) => {
+				console.error('Larry write: failed to create note', err);
+				new Notice('Larry write: failed to create note.');
+			});
+		}).open();
 	}
 
 	onunload() {}
