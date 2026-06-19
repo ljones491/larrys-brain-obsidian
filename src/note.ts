@@ -5,6 +5,8 @@ import { generateTitle } from './title';
 export interface DumpNoteMeta {
 	/** Tag for the note, with or without a leading '#'. */
 	tag: string;
+	/** Suffix appended to the generated title, e.g. `X - hmm`. */
+	titleSuffix: string;
 }
 
 /**
@@ -19,7 +21,8 @@ export async function createDumpNote(
 	text: string,
 	meta: DumpNoteMeta,
 ): Promise<TFile> {
-	const baseName = sanitizeFileName(generateTitle(text)) || makeFileStamp();
+	const baseName =
+		sanitizeFileName(generateTitle(text, meta.titleSuffix)) || makeFileStamp();
 	const path = uniquePath(app, baseName);
 
 	const contents = `${makeFrontmatter(meta)}${text}`;

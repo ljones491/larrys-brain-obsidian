@@ -4,10 +4,13 @@ import LarrysBrainPlugin from './main';
 export interface LarrysBrainSettings {
 	/** Tag applied to every Larry write note, stored without a leading '#'. */
 	tag: string;
+	/** Suffix appended to generated titles, e.g. `X - hmm`. Blank omits it. */
+	titleSuffix: string;
 }
 
 export const DEFAULT_SETTINGS: LarrysBrainSettings = {
 	tag: 'thought',
+	titleSuffix: 'hmm',
 };
 
 export class LarrysBrainSettingTab extends PluginSettingTab {
@@ -36,6 +39,21 @@ export class LarrysBrainSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.tag)
 					.onChange(async (value) => {
 						this.plugin.settings.tag = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Title suffix')
+			.setDesc(
+				'Appended to generated titles as "Topic - suffix". Leave blank for just the topic.',
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('hmm')
+					.setValue(this.plugin.settings.titleSuffix)
+					.onChange(async (value) => {
+						this.plugin.settings.titleSuffix = value;
 						await this.plugin.saveSettings();
 					}),
 			);

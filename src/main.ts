@@ -25,7 +25,10 @@ export default class LarrysBrainPlugin extends Plugin {
 
 	private openLarryWrite(): void {
 		new LarryWriteModal(this.app, (text) => {
-			createDumpNote(this.app, text, { tag: this.settings.tag }).catch((err: unknown) => {
+			createDumpNote(this.app, text, {
+				tag: this.settings.tag,
+				titleSuffix: this.settings.titleSuffix,
+			}).catch((err: unknown) => {
 				console.error('Larry write: failed to create note', err);
 				new Notice('Larry write: failed to create note.');
 			});
