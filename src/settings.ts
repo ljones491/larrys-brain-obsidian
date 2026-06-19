@@ -25,9 +25,13 @@ export class LarrysBrainSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Tag')
+			// "Larry" is a proper noun (the feature name), not a sentence-case slip.
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			.setDesc('Tag added to every Larry write note. The leading # is optional.')
 			.addText((text) =>
 				text
+					// Tag values are lowercase by convention; keep the example lowercase.
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder('thought')
 					.setValue(this.plugin.settings.tag)
 					.onChange(async (value) => {

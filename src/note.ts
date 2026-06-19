@@ -1,4 +1,5 @@
 import { App, normalizePath, TFile } from 'obsidian';
+import { generateTitle } from './title';
 
 /** Fields written into the frontmatter of a dump note. */
 export interface DumpNoteMeta {
@@ -9,21 +10,46 @@ export interface DumpNoteMeta {
 /**
  * Create a new note containing the given raw text and open it.
  *
- * The note is prefixed with frontmatter (date, tag, source). The
- * auto-generated title is still a placeholder timestamp for now.
+ * The note is prefixed with frontmatter (date, tag, source). Its title is
+ * auto-generated from the content (e.g. "Thoughts About X"), falling back
+ * to a timestamp when no usable subject can be found.
  */
 export async function createDumpNote(
 	app: App,
 	text: string,
 	meta: DumpNoteMeta,
 ): Promise<TFile> {
-	const fileName = `${makeFileStamp()}.md`;
-	const path = normalizePath(fileName);
+	const baseName = sanitizeFileName(generateTitle(text)) || makeFileStamp();
+	const path = uniquePath(app, baseName);
 
 	const contents = `${makeFrontmatter(meta)}${text}`;
 	const file = await app.vault.create(path, contents);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
+}
+
+/**
+ * Strip characters that aren't safe in a filename and tidy the edges.
+ * Returns an empty string if nothing usable remains.
+ */
+function sanitizeFileName(name: string): string {
+	return name
+		// Characters illegal in filenames or meaningful in Obsidian links.
+		.replace(/[\\/:*?"<>|#^[\]]/g, '')
+		.replace(/\s+/g, ' ')
+		.replace(/^[.\s]+|[.\s]+$/g, '');
+}
+
+/**
+ * A vault path for `baseName` that doesn't collide with an existing note,
+ * appending a counter (e.g. "... 2") when needed.
+ */
+function uniquePath(app: App, baseName: string): string {
+	let candidate = normalizePath(`${baseName}.md`);
+	for (let n = 2; app.vault.getAbstractFileByPath(candidate); n++) {
+		candidate = normalizePath(`${baseName} ${n}.md`);
+	}
+	return candidate;
 }
 
 /**
@@ -51,8 +77,8 @@ function makeDateStamp(): string {
 }
 
 /**
- * A filesystem-safe, sortable timestamp for a placeholder filename, e.g.
- * `2026-06-18 1432`. A proper auto-generated title comes later.
+ * A filesystem-safe, sortable timestamp used as a fallback filename when no
+ * title can be generated, e.g. `2026-06-18 1432`.
  */
 function makeFileStamp(): string {
 	const now = new Date();
