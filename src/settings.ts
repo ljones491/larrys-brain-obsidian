@@ -2,11 +2,12 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import LarrysBrainPlugin from './main';
 
 export interface LarrysBrainSettings {
-	mySetting: string;
+	/** Tag applied to every Larry write note, stored without a leading '#'. */
+	tag: string;
 }
 
 export const DEFAULT_SETTINGS: LarrysBrainSettings = {
-	mySetting: 'default',
+	tag: 'thought',
 };
 
 export class LarrysBrainSettingTab extends PluginSettingTab {
@@ -23,14 +24,14 @@ export class LarrysBrainSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc("It's a secret")
+			.setName('Tag')
+			.setDesc('Tag added to every Larry write note. The leading # is optional.')
 			.addText((text) =>
 				text
-					.setPlaceholder('Enter your secret')
-					.setValue(this.plugin.settings.mySetting)
+					.setPlaceholder('thought')
+					.setValue(this.plugin.settings.tag)
 					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
+						this.plugin.settings.tag = value;
 						await this.plugin.saveSettings();
 					}),
 			);
