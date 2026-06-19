@@ -2,11 +2,15 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import LarrysBrainPlugin from './main';
 
 export interface LarrysBrainSettings {
-	mySetting: string;
+	/** Tag applied to every Larry write note, stored without a leading '#'. */
+	tag: string;
+	/** Suffix appended to generated titles, e.g. `X - hmm`. Blank omits it. */
+	titleSuffix: string;
 }
 
 export const DEFAULT_SETTINGS: LarrysBrainSettings = {
-	mySetting: 'default',
+	tag: 'thought',
+	titleSuffix: 'hmm',
 };
 
 export class LarrysBrainSettingTab extends PluginSettingTab {
@@ -23,14 +27,33 @@ export class LarrysBrainSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc("It's a secret")
+			.setName('Tag')
+			// "Larry" is a proper noun (the feature name), not a sentence-case slip.
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			.setDesc('Tag added to every Larry write note. The leading # is optional.')
 			.addText((text) =>
 				text
-					.setPlaceholder('Enter your secret')
-					.setValue(this.plugin.settings.mySetting)
+					// Tag values are lowercase by convention; keep the example lowercase.
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.setPlaceholder('thought')
+					.setValue(this.plugin.settings.tag)
 					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
+						this.plugin.settings.tag = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Title suffix')
+			.setDesc(
+				'Appended to generated titles as "Topic - suffix". Leave blank for just the topic.',
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('hmm')
+					.setValue(this.plugin.settings.titleSuffix)
+					.onChange(async (value) => {
+						this.plugin.settings.titleSuffix = value;
 						await this.plugin.saveSettings();
 					}),
 			);

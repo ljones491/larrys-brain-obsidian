@@ -120,6 +120,20 @@ Follow Obsidian's **Developer Policies** and **Plugin Guidelines**. In particula
 - Use arrow notation for navigation: **Settings → Community plugins**.
 - Keep in-app strings short, consistent, and free of jargon.
 
+## Styling & CSS variables
+
+- Style UI with Obsidian's built-in CSS variables so the plugin respects the
+  user's theme (light/dark, accent color, font sizes). Avoid hard-coded colors,
+  font sizes, and spacing.
+- These variables come from Obsidian's published theming system, not this repo,
+  so **don't rely on memory** for their names. Look them up:
+    - Browse the canonical, current list in the official docs — the CSS variables
+      reference (see References). It groups variables by purpose (color, text,
+      typography, spacing, components).
+    - Confirm a variable actually resolves by inspecting the element in the
+      developer console (Ctrl/Cmd+Shift+I); any undefined variable silently
+      falls back to nothing.
+
 ## Performance
 
 - Keep startup light. Defer heavy work until needed.
@@ -267,3 +281,4 @@ this.registerInterval(
 - Developer policies: https://docs.obsidian.md/Developer+policies
 - Plugin guidelines: https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines
 - Style guide: https://help.obsidian.md/style-guide
+- CSS variables reference: https://docs.obsidian.md/Reference/CSS+variables/CSS+variables

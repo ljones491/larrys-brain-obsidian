@@ -1,6 +1,6 @@
 {
 	"name": "larrys-brain",
-	"version": "1.0.0",
+	"version": "0.0.1",
 	"description": "Larry's Brain for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"type": "module",
@@ -23,5 +23,8 @@
 		"obsidian": "latest",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.59.1"
+	},
+	"dependencies": {
+		"compromise": "^14.15.1"
 	}
 }
