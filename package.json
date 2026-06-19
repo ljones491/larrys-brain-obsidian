@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "larrys-brain",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Larry's Brain for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
