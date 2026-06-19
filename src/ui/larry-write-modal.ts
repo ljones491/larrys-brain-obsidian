@@ -17,13 +17,13 @@ export class LarryWriteModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 
-		this.setTitle('Larry write');
+		this.modalEl.addClass('larry-write-modal');
+		// this.setTitle('Larry write');
 
 		const textarea = contentEl.createEl('textarea', {
 			cls: 'larry-write-textarea',
 			attr: {
 				placeholder: 'Just write…',
-				rows: '12',
 			},
 		});
 		textarea.focus();

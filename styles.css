@@ -7,7 +7,25 @@ If your plugin does not need CSS, delete this file.
 
 */
 
+.larry-write-modal {
+	width: 80vw;
+	max-width: 800px;
+	height: 40vh;
+}
+
+/* Let the content stack vertically so the textarea can grow to fill. */
+.larry-write-modal .modal-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
 .larry-write-textarea {
 	width: 100%;
-	resize: vertical;
+	flex: 1;
+	min-height: 0;
+	resize: none;
+	font-size: 1.8em;
+	line-height: 1.6;
 }
