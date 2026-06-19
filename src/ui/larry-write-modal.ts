@@ -32,20 +32,29 @@ export class LarryWriteModal extends Modal {
 			this.value = textarea.value;
 		});
 
-		// Cmd/Ctrl+Enter submits; plain Enter stays free for new lines.
+		// Plain Enter submits; Shift/Cmd/Ctrl+Enter inserts a new line.
 		textarea.addEventListener('keydown', (evt) => {
-			if ((evt.metaKey || evt.ctrlKey) && evt.key === 'Enter') {
-				evt.preventDefault();
-				this.submit();
+			if (evt.key !== 'Enter') {
+				return;
 			}
+			if (evt.shiftKey || evt.metaKey || evt.ctrlKey) {
+				// Let a modified Enter fall through as a normal newline.
+				return;
+			}
+			evt.preventDefault();
+			this.submit();
 		});
 
-		new Setting(contentEl).addButton((btn) =>
+		const footer = new Setting(contentEl).addButton((btn) =>
 			btn
 				.setButtonText('Save')
 				.setCta()
 				.onClick(() => this.submit()),
 		);
+		footer.infoEl.createSpan({
+			cls: 'larry-write-hint',
+			text: 'Enter: save · Shift + Enter: new line',
+		});
 	}
 
 	private submit(): void {
