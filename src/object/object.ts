@@ -1,13 +1,22 @@
-import { App, TFile } from 'obsidian';
+import { App, normalizePath, TFile } from 'obsidian';
 import {
 	buildObjectInstanceContents,
 	ObjectInstance,
 	recognizeObjectInstance,
 } from './object-instance';
 import { ObjectKindDef, recognizeObjectKind } from './object-note';
-import { createUniqueNote, makeFileStamp, sanitizeFileName } from '../utils/notes';
+import { buildBaseFile } from './object-base';
+import {
+	createUniqueNote,
+	ensureFolder,
+	makeFileStamp,
+	sanitizeFileName,
+} from '../utils/notes';
 
 export type { ObjectKindDef };
+
+/** Vault folder that holds the generated Bases `.base` set views. */
+export const SETS_FOLDER = 'sets';
 
 /**
  * An OBJECT kind available to instantiate: the contract plus the display name
@@ -123,6 +132,30 @@ export async function createObject(app: App, input: NewObject): Promise<TFile> {
 	const contents = buildObjectInstanceContents(instance, input.propertyNames);
 	const baseName = sanitizeFileName(input.name) || makeFileStamp();
 	const file = await createUniqueNote(app, baseName, contents);
+	await app.workspace.getLeaf(false).openFile(file);
+	return file;
+}
+
+/**
+ * Surface a kind's whole set as a persistent Bases table and open it — the
+ * "see my sets" capability in .dev/GOAL.md. Ensures a `<name>.base` file exists
+ * in {@link SETS_FOLDER}, filtered to the kind's instance tag with a column per
+ * property, then opens it.
+ *
+ * Create-if-missing on purpose: once the view exists the user may have tweaked
+ * its columns or sorting, and a Bases view is meant to stick around, so a
+ * re-run just reopens it rather than clobbering those edits. Unlike the other
+ * set features this needs no runtime enumeration — Bases queries the set live.
+ */
+export async function showSet(app: App, kind: ObjectKindOption): Promise<TFile> {
+	await ensureFolder(app, SETS_FOLDER);
+	const baseName = sanitizeFileName(kind.name) || (kind.def.objectTag.split('/').pop() ?? 'set');
+	const path = normalizePath(`${SETS_FOLDER}/${baseName}.base`);
+	const existing = app.vault.getAbstractFileByPath(path);
+	const file =
+		existing instanceof TFile
+			? existing
+			: await app.vault.create(path, buildBaseFile(kind.name, kind.def));
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
 }

@@ -22,10 +22,6 @@ export async function ensureFolder(app: App, path: string): Promise<void> {
 	if (app.vault.getAbstractFileByPath(normalized)) {
 		return;
 	}
-	// createFolder has existed since before 1.0.0; only its return type (a
-	// TFolder, which we don't use) is newer, so the call is safe at our
-	// minAppVersion.
-	// eslint-disable-next-line obsidianmd/no-unsupported-api
 	await app.vault.createFolder(normalized);
 }
 
