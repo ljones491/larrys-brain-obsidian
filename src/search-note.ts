@@ -1,9 +1,9 @@
 import { App, TFile } from 'obsidian';
 import {
+	createUniqueNote,
 	makeDateStamp,
 	makeFileStamp,
 	sanitizeFileName,
-	uniquePath,
 } from './utils/notes';
 
 /** Tag applied to every search note. */
@@ -22,10 +22,8 @@ export async function createSearchNote(
 	query: string,
 ): Promise<TFile> {
 	const baseName = sanitizeFileName(`${query} - ${SEARCH_TAG}`) || makeFileStamp();
-	const path = uniquePath(app, baseName);
-
 	const contents = `${makeFrontmatter(query)}Search for "${query}".\n`;
-	const file = await app.vault.create(path, contents);
+	const file = await createUniqueNote(app, baseName, contents);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
 }

@@ -1,10 +1,10 @@
 import { App, TFile } from 'obsidian';
 import { generateTitle } from './title';
 import {
+	createUniqueNote,
 	makeDateStamp,
 	makeFileStamp,
 	sanitizeFileName,
-	uniquePath,
 } from './utils/notes';
 
 /** Fields written into the frontmatter of a dump note. */
@@ -29,10 +29,8 @@ export async function createDumpNote(
 ): Promise<TFile> {
 	const baseName =
 		sanitizeFileName(generateTitle(text, meta.titleSuffix)) || makeFileStamp();
-	const path = uniquePath(app, baseName);
-
 	const contents = `${makeFrontmatter(meta)}${text}`;
-	const file = await app.vault.create(path, contents);
+	const file = await createUniqueNote(app, baseName, contents);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
 }

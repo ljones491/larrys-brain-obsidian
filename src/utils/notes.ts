@@ -1,4 +1,4 @@
-import { App, normalizePath } from 'obsidian';
+import { App, normalizePath, TFile } from 'obsidian';
 
 /**
  * Strip characters that aren't safe in a filename and tidy the edges.
@@ -12,16 +12,42 @@ export function sanitizeFileName(name: string): string {
 		.replace(/^[.\s]+|[.\s]+$/g, '');
 }
 
+/** How many suffixed names to try before giving up on a unique path. */
+const MAX_CREATE_ATTEMPTS = 1000;
+
 /**
- * A vault path for `baseName` that doesn't collide with an existing note,
- * appending a counter (e.g. "... 2") when needed.
+ * Create a note at `baseName`, appending a counter (e.g. "... 2") on collision.
+ *
+ * Collisions are matched case-insensitively: on a case-insensitive filesystem
+ * `Dog - search.md` and `dog - search.md` are the same file, but Obsidian's
+ * path lookup is case-sensitive and would miss it. We compare against the
+ * lowercased set of existing paths, and still let a failed `vault.create` (a
+ * lost race) bump to the next suffix.
  */
-export function uniquePath(app: App, baseName: string): string {
-	let candidate = normalizePath(`${baseName}.md`);
-	for (let n = 2; app.vault.getAbstractFileByPath(candidate); n++) {
-		candidate = normalizePath(`${baseName} ${n}.md`);
+export async function createUniqueNote(
+	app: App,
+	baseName: string,
+	contents: string,
+): Promise<TFile> {
+	const taken = new Set(app.vault.getFiles().map((f) => f.path.toLowerCase()));
+
+	for (let n = 1; n <= MAX_CREATE_ATTEMPTS; n++) {
+		const candidate = normalizePath(
+			n === 1 ? `${baseName}.md` : `${baseName} ${n}.md`,
+		);
+		if (taken.has(candidate.toLowerCase())) {
+			continue;
+		}
+		try {
+			return await app.vault.create(candidate, contents);
+		} catch {
+			// Lost a race (or a case-only collision the index missed): mark this
+			// name taken and try the next suffix.
+			taken.add(candidate.toLowerCase());
+		}
 	}
-	return candidate;
+
+	throw new Error(`Could not find a free name for "${baseName}".`);
 }
 
 /** The date a note was written, e.g. `2026-06-18`. */
