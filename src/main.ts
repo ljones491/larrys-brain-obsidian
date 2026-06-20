@@ -13,6 +13,7 @@ import { SearchIndex } from './remember/search-index';
 import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
 import { CreateObjectModal } from './object/create-object-modal';
+import { ShuffleModal } from './object/shuffle-modal';
 import { createObject, listObjectKinds } from './object/object';
 
 export default class LarrysBrainPlugin extends Plugin {
@@ -81,6 +82,12 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openCreateObject(),
 		});
 
+		this.addCommand({
+			id: 'shuffle',
+			name: 'Shuffle',
+			callback: () => this.openShuffle(),
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -117,6 +124,18 @@ export default class LarrysBrainPlugin extends Plugin {
 				console.error('Create object: failed to create note', err);
 				new Notice('Create object: failed to create note.');
 			});
+		}).open();
+	}
+
+	private openShuffle(): void {
+		const kinds = listObjectKinds(this.app);
+		if (kinds.length === 0) {
+			new Notice('Define an object kind first.');
+			return;
+		}
+		new ShuffleModal(this.app, kinds, (file) => {
+			// Open the picked object in a new tab so the shuffle modal stays put.
+			void this.app.workspace.getLeaf('tab').openFile(file);
 		}).open();
 	}
 

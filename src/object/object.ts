@@ -2,6 +2,7 @@ import { App, TFile } from 'obsidian';
 import {
 	buildObjectInstanceContents,
 	ObjectInstance,
+	recognizeObjectInstance,
 } from './object-instance';
 import { ObjectKindDef, recognizeObjectKind } from './object-note';
 import { createUniqueNote, makeFileStamp, sanitizeFileName } from '../utils/notes';
@@ -18,6 +19,20 @@ export interface ObjectKindOption {
 	/** The kind's contract: instance tag and allowed properties. */
 	def: ObjectKindDef;
 	/** The definition note itself. */
+	file: TFile;
+}
+
+/**
+ * One member of a kind's set: an instance note read back from the vault. The
+ * dual of {@link ObjectKindOption} — where that names a kind, this names a
+ * single object obeying it, with its property values and the note itself.
+ */
+export interface ObjectInstanceResult {
+	/** The object's name, taken from its note's title, e.g. "Dune". */
+	name: string;
+	/** The instance's tag and property values, read back via the kind's contract. */
+	instance: ObjectInstance;
+	/** The instance note itself. */
 	file: TFile;
 }
 
@@ -55,6 +70,42 @@ export function listObjectKinds(app: App): ObjectKindOption[] {
 	}
 	kinds.sort((a, b) => a.name.localeCompare(b.name));
 	return kinds;
+}
+
+/**
+ * List every OBJECT instance belonging to `kind` — the kind's *set*. Scans the
+ * vault's markdown frontmatter (warm in `metadataCache` after layout-ready) and
+ * keeps the notes carrying the kind's instance tag, reading each back through
+ * {@link recognizeObjectInstance} so callers get the property values, not just
+ * the file. Sorted by name for a stable list.
+ *
+ * The mirror of {@link listObjectKinds}, and the primitive every set-level
+ * feature builds on (shuffle, surfacing a set, calculations over it). The
+ * definition note isn't a member: it carries the meta tag, not the instance tag.
+ */
+export function listObjects(app: App, kind: ObjectKindOption): ObjectInstanceResult[] {
+	const objects: ObjectInstanceResult[] = [];
+	for (const file of app.vault.getMarkdownFiles()) {
+		const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+		const instance = recognizeObjectInstance(frontmatter, kind.def);
+		if (!instance) {
+			continue;
+		}
+		objects.push({ name: file.basename, instance, file });
+	}
+	objects.sort((a, b) => a.name.localeCompare(b.name));
+	return objects;
+}
+
+/**
+ * Pick one item from `items` at random, or `null` when there are none. `rng`
+ * defaults to `Math.random` and is injectable so the choice is testable.
+ */
+export function pickRandom<T>(items: readonly T[], rng: () => number = Math.random): T | null {
+	if (items.length === 0) {
+		return null;
+	}
+	return items[Math.floor(rng() * items.length)] ?? null;
 }
 
 /**
