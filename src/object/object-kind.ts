@@ -1,7 +1,15 @@
 import { App, TFile } from 'obsidian';
-import { buildObjectKindContents, ObjectKindDef } from './object-note';
-import { normalizeTag } from '../meta';
-import { createUniqueNote, sanitizeFileName } from '../utils/notes';
+import {
+	buildObjectKindContents,
+	OBJECT_NAMESPACE,
+	ObjectKindDef,
+} from './object-note';
+import { META_FOLDER, normalizeTag } from '../meta';
+import {
+	createUniqueNote,
+	ensureFolder,
+	sanitizeFileName,
+} from '../utils/notes';
 
 export type { ObjectKindDef };
 
@@ -24,12 +32,16 @@ export async function createObjectKind(
 	app: App,
 	input: NewObjectKind,
 ): Promise<TFile> {
-	const objectTag = normalizeTag(input.name);
+	const normalized = normalizeTag(input.name);
+	const objectTag = `${OBJECT_NAMESPACE}/${normalized}`;
 	const def: ObjectKindDef = { objectTag, properties: input.properties };
-	const baseName = sanitizeFileName(input.name) || objectTag;
+	const baseName = sanitizeFileName(input.name) || normalized;
+	// Keep kind definitions (meta notes) in their own folder, away from the
+	// user's note tree.
+	await ensureFolder(app, META_FOLDER);
 	const file = await createUniqueNote(
 		app,
-		baseName,
+		`${META_FOLDER}/${baseName}`,
 		buildObjectKindContents(def),
 	);
 	await app.workspace.getLeaf(false).openFile(file);

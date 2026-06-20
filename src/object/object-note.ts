@@ -31,6 +31,13 @@ const SOURCE_USER = 'user';
 /** Tag marking a note as an OBJECT-kind definition. Nested under the meta namespace. */
 export const OBJECT_KIND_TAG = `${META_TAG}/object-kind`;
 
+/**
+ * Namespace every OBJECT instance tag nests under, so `book` becomes
+ * `object/book`. Lets the graph (and any query) target *all* objects at once via
+ * the `object` parent tag, separate from the user's free-form tags.
+ */
+export const OBJECT_NAMESPACE = 'object';
+
 /** A kind's contract: the tag its instances carry and the properties they may set. */
 export interface ObjectKindDef {
 	/** Tag that instances of this kind carry, e.g. `book`. Stored without a `#`. */
@@ -62,7 +69,9 @@ export function buildObjectKindContents(def: ObjectKindDef): string {
 		lines.push(`${FIELD_PROPERTIES}: []`);
 	}
 	lines.push(`${FIELD_SOURCE}: ${SOURCE_USER}`, '---', '');
-	return `${lines.join('\n')}Defines the **${tag}** object kind.\n`;
+	// Show the bare kind name in the description, not the namespaced tag.
+	const name = tag.split('/').pop() ?? tag;
+	return `${lines.join('\n')}Defines the **${name}** object kind.\n`;
 }
 
 /**

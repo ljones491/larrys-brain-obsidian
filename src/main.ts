@@ -12,6 +12,8 @@ import { MemoryWeb } from './remember/memory-web';
 import { SearchIndex } from './remember/search-index';
 import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
+import { CreateObjectModal } from './object/create-object-modal';
+import { createObject, listObjectKinds } from './object/object';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -73,6 +75,12 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openDefineObjectKind(),
 		});
 
+		this.addCommand({
+			id: 'create-object',
+			name: 'Create object',
+			callback: () => this.openCreateObject(),
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -94,6 +102,20 @@ export default class LarrysBrainPlugin extends Plugin {
 			createObjectKind(this.app, kind).catch((err: unknown) => {
 				console.error('Define object kind: failed to create note', err);
 				new Notice('Define object kind: failed to create note.');
+			});
+		}).open();
+	}
+
+	private openCreateObject(): void {
+		const kinds = listObjectKinds(this.app);
+		if (kinds.length === 0) {
+			new Notice('Define an object kind first.');
+			return;
+		}
+		new CreateObjectModal(this.app, kinds, (object) => {
+			createObject(this.app, object).catch((err: unknown) => {
+				console.error('Create object: failed to create note', err);
+				new Notice('Create object: failed to create note.');
 			});
 		}).open();
 	}

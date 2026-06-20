@@ -16,6 +16,13 @@
 export const META_TAG = 'larrys-meta';
 
 /**
+ * Vault folder that holds Larry's Brain's own bookkeeping notes (OBJECT-kind
+ * definitions, etc.) so they stay out of the user's note tree. Kept alongside
+ * {@link META_TAG} so the convention has one home.
+ */
+export const META_FOLDER = 'larrys-meta';
+
+/**
  * Whether `tag` belongs to the meta namespace — either `larrys-meta` itself or
  * any nested tag like `larrys-meta/object-kind`. A leading `#` is tolerated so
  * the same check works on frontmatter tags (`larrys-meta`) and inline tags
