@@ -19,7 +19,12 @@ export default class LarrysBrainPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		this.index = new SearchIndex(this.app);
+		// Persist the index inside the plugin's own folder so restarts restore
+		// it instead of rebuilding the whole vault.
+		const snapshotPath = this.manifest.dir
+			? `${this.manifest.dir}/search-index.json`
+			: null;
+		this.index = new SearchIndex(this.app, snapshotPath);
 		// Defer the one full scan until Obsidian's own cache is warm so startup
 		// stays light; afterwards only changed files are re-read.
 		this.app.workspace.onLayoutReady(() => void this.index.build());
@@ -105,7 +110,10 @@ export default class LarrysBrainPlugin extends Plugin {
 		}).open();
 	}
 
-	onunload() {}
+	onunload() {
+		// Flush any pending index write before we go.
+		void this.index.dispose();
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
