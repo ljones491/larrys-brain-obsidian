@@ -79,6 +79,12 @@ npm run build
 
 ## Testing
 
+- **Unit tests** run on vitest: `npm test`. Put tests next to the code as
+  `*.test.ts` (excluded from the production `tsc` build and from lint). The
+  `obsidian` package is types-only, so vitest aliases it to a stub
+  (`test/obsidian-mock.ts`); add any runtime symbol a test needs there. Prefer
+  testing logic behind a narrow seam (e.g. `MemoryWeb` over `App` + a stub
+  index) rather than booting Obsidian.
 - Manual install for testing: copy `main.js`, `manifest.json`, `styles.css` (if any) to:
     ```
     <Vault>/.obsidian/plugins/<plugin-id>/
