@@ -148,3 +148,10 @@ If your plugin does not need CSS, delete this file.
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);
 }
+
+.remember-result-match {
+	background-color: var(--text-highlight-bg);
+	color: var(--text-normal);
+	border-radius: var(--radius-s);
+	padding: 0 1px;
+}

@@ -70,10 +70,8 @@ export class ResultsModal extends Modal {
 					text: 'Past search',
 				});
 			}
-			row.createEl('div', {
-				cls: 'remember-result-snippet',
-				text: result.snippet,
-			});
+			const snippet = row.createEl('div', { cls: 'remember-result-snippet' });
+			renderHighlighted(snippet, result.snippet, result.terms);
 			row.addEventListener('click', () => {
 				// Stay open so the user can link several notes from one search;
 				// mark this row so it reads as remembered.
@@ -86,4 +84,42 @@ export class ResultsModal extends Modal {
 	onClose(): void {
 		this.contentEl.empty();
 	}
+}
+
+/**
+ * Render `snippet` into `el`, wrapping each occurrence of a matched term in a
+ * `<mark>` so the user sees which words triggered the result. Matching is
+ * case-insensitive; the original snippet casing is preserved.
+ */
+function renderHighlighted(el: HTMLElement, snippet: string, terms: string[]): void {
+	const active = terms.filter((t) => t.length > 0);
+	if (active.length === 0) {
+		el.setText(snippet);
+		return;
+	}
+
+	const pattern = new RegExp(
+		`(${active.map(escapeRegExp).join('|')})`,
+		'gi',
+	);
+	let last = 0;
+	for (const match of snippet.matchAll(pattern)) {
+		const at = match.index ?? 0;
+		if (at > last) {
+			el.appendText(snippet.slice(last, at));
+		}
+		el.createEl('mark', {
+			cls: 'remember-result-match',
+			text: match[0],
+		});
+		last = at + match[0].length;
+	}
+	if (last < snippet.length) {
+		el.appendText(snippet.slice(last));
+	}
+}
+
+/** Escape a string for safe interpolation into a RegExp. */
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

@@ -5,6 +5,8 @@ export interface SearchResult {
 	file: TFile;
 	/** A short excerpt of the note around the first match, for preview. */
 	snippet: string;
+	/** Lowercased query terms that matched, so the UI can highlight them. */
+	terms: string[];
 	/** Total term occurrences, used to rank results. */
 	score: number;
 	/** True when this match is itself a prior Remember `#search` note. */
@@ -48,22 +50,37 @@ export async function runSearch(
 		}
 
 		const content = await app.vault.cachedRead(file);
-		const haystack = `${file.basename}\n${content}`;
-		const lower = haystack.toLowerCase();
+		// Skip the YAML frontmatter so previews show body text, not metadata.
+		const bodyStart = getBodyStart(app, file);
+		const body = content.slice(bodyStart);
+		const lowerBody = body.toLowerCase();
+		const lowerTitle = file.basename.toLowerCase();
 
 		let score = 0;
-		let firstHit = -1;
+		// Prefer to centre the snippet on the first term that appears in the
+		// body; the title is matched too but makes for a poor preview.
+		let firstBodyHit = -1;
+		const matched: string[] = [];
 		for (const term of terms) {
-			let from = lower.indexOf(term);
-			if (from === -1) {
-				continue;
+			let hit = false;
+
+			if (lowerTitle.includes(term)) {
+				score++;
+				hit = true;
 			}
-			if (firstHit === -1 || from < firstHit) {
-				firstHit = from;
+
+			let from = lowerBody.indexOf(term);
+			if (from !== -1 && (firstBodyHit === -1 || from < firstBodyHit)) {
+				firstBodyHit = from;
 			}
 			while (from !== -1) {
 				score++;
-				from = lower.indexOf(term, from + term.length);
+				hit = true;
+				from = lowerBody.indexOf(term, from + term.length);
+			}
+
+			if (hit) {
+				matched.push(term);
 			}
 		}
 
@@ -72,7 +89,8 @@ export async function runSearch(
 			results.push({
 				file,
 				score,
-				snippet: makeSnippet(haystack, firstHit),
+				snippet: makeSnippet(body, firstBodyHit),
+				terms: matched,
 				isSearchNote: searchNoteQuery !== null,
 				isRepeat:
 					searchNoteQuery !== null &&
@@ -107,10 +125,24 @@ function getSearchNoteQuery(app: App, file: TFile): string | null {
 	return typeof query === 'string' ? query : '';
 }
 
-/** Extract a whitespace-collapsed excerpt of `text` centred on `index`. */
+/**
+ * Offset into a note's content where the body begins, i.e. just past any YAML
+ * frontmatter. Uses Obsidian's parsed frontmatter position so the boundary is
+ * robust; falls back to 0 when there is none.
+ */
+function getBodyStart(app: App, file: TFile): number {
+	const end = app.metadataCache.getFileCache(file)?.frontmatterPosition?.end;
+	return end ? end.offset : 0;
+}
+
+/**
+ * Extract a whitespace-collapsed excerpt of `text` centred on `index`. When
+ * `index` is -1 (the match was in the title only), preview from the start.
+ */
 function makeSnippet(text: string, index: number): string {
-	const start = Math.max(0, index - SNIPPET_PAD);
-	const end = Math.min(text.length, index + SNIPPET_PAD);
+	const anchor = index === -1 ? 0 : index;
+	const start = Math.max(0, anchor - SNIPPET_PAD);
+	const end = Math.min(text.length, anchor + SNIPPET_PAD);
 	let snippet = text.slice(start, end).replace(/\s+/g, ' ').trim();
 	if (start > 0) {
 		snippet = `…${snippet}`;
