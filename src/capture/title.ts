@@ -144,5 +144,8 @@ function truncateAtWord(text: string, max: number): string {
 
 /** Capitalize the first letter of each word. */
 function titleCase(phrase: string): string {
-	return phrase.replace(/(^|\s)(\w)/g, (_, sep, c) => sep + c.toUpperCase());
+	return phrase.replace(
+		/(^|\s)(\w)/g,
+		(_: string, sep: string, c: string) => sep + c.toUpperCase(),
+	);
 }

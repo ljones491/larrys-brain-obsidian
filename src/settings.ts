@@ -46,10 +46,12 @@ export class LarrysBrainSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Title suffix')
 			.setDesc(
-				'Appended to generated titles as "Topic - suffix". Leave blank for just the topic.',
+				'Appended to generated titles as "topic - suffix". Leave blank for just the topic.',
 			)
 			.addText((text) =>
 				text
+					// The suffix is lowercase by convention; keep the example lowercase.
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
 					.setPlaceholder('hmm')
 					.setValue(this.plugin.settings.titleSuffix)
 					.onChange(async (value) => {
