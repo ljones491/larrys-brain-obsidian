@@ -43,6 +43,12 @@ Type in big fun big text box. Capture quick note with
 
 [compromise](https://github.com/spencermountain/compromise) (phenomenal library by real engineer) for quick title. Sometimes wrong. Sometimes hilarious. No call LLM for. LLM let phone ring. No want.
 
+### Remember
+
+Custom command name: `Larry's Brain: Remember`. Opens search box. You search. Results clicked linked to search.
+
+Memory web.
+
 ### What Else?
 
 `undefined` type beat.

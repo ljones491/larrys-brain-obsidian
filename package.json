@@ -1,6 +1,6 @@
 {
 	"name": "larrys-brain",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"description": "Larry's Brain for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"type": "module",
