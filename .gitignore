@@ -23,5 +23,6 @@ data.json
 
 # only local
 deploy.ps1
+prod.ps1
 
 .dev/
