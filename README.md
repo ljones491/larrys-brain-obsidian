@@ -34,7 +34,7 @@ Want faster? Tell motherboard makehaste in mothertongue.
 
 > Larry write now. Larry think later.
 
-Custom command name: `Larry's Brain: Larry write`. `law` probably good enough search unless Obsidian-maxxing.
+Custom command name: `Larry's Brain: Larry write`. `lwr` probably good enough search unless Obsidian-maxxing.
 
 Type in big fun big text box. Capture quick note with
 - configurable tag (default `#thought`)
