@@ -10,6 +10,8 @@ import { ResultsModal } from './remember/results-modal';
 import { createDumpNote } from './capture/note';
 import { MemoryWeb } from './remember/memory-web';
 import { SearchIndex } from './remember/search-index';
+import { DefineObjectKindModal } from './object/define-object-kind-modal';
+import { createObjectKind } from './object/object-kind';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -65,6 +67,12 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openRemember(),
 		});
 
+		this.addCommand({
+			id: 'define-object-kind',
+			name: 'Define object kind',
+			callback: () => this.openDefineObjectKind(),
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -77,6 +85,15 @@ export default class LarrysBrainPlugin extends Plugin {
 			}).catch((err: unknown) => {
 				console.error('Larry write: failed to create note', err);
 				new Notice('Larry write: failed to create note.');
+			});
+		}).open();
+	}
+
+	private openDefineObjectKind(): void {
+		new DefineObjectKindModal(this.app, (kind) => {
+			createObjectKind(this.app, kind).catch((err: unknown) => {
+				console.error('Define object kind: failed to create note', err);
+				new Notice('Define object kind: failed to create note.');
 			});
 		}).open();
 	}
