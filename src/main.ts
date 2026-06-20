@@ -8,13 +8,13 @@ import { LarryWriteModal } from './capture/larry-write-modal';
 import { RememberModal } from './remember/remember-modal';
 import { ResultsModal } from './remember/results-modal';
 import { createDumpNote } from './capture/note';
-import { createSearchNote, linkFoundNote } from './remember/search-note';
-import { runSearch } from './remember/search';
+import { MemoryWeb } from './remember/memory-web';
 import { SearchIndex } from './remember/search-index';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
 	private index!: SearchIndex;
+	private memoryWeb!: MemoryWeb;
 
 	async onload() {
 		await this.loadSettings();
@@ -25,6 +25,7 @@ export default class LarrysBrainPlugin extends Plugin {
 			? `${this.manifest.dir}/search-index.json`
 			: null;
 		this.index = new SearchIndex(this.app, snapshotPath);
+		this.memoryWeb = new MemoryWeb(this.app, this.index);
 		// Defer the one full scan until Obsidian's own cache is warm so startup
 		// stays light; afterwards only changed files are re-read.
 		this.app.workspace.onLayoutReady(() => void this.index.build());
@@ -90,18 +91,21 @@ export default class LarrysBrainPlugin extends Plugin {
 	}
 
 	/**
-	 * Record the search as a `#search` note, then run it and let the user
-	 * preview the matches. Each result the user opens is linked back into the
-	 * search note as a `FOUND[[...]]` edge. The results modal stays open so a
-	 * single search can spawn several such memory links.
+	 * Run a Remember and surface it: open the recorded `#search` note, then let
+	 * the user preview the matches. Each result the user opens is linked back
+	 * into the search note as a `FOUND: [[...]]` edge. The results modal stays
+	 * open so a single search can spawn several such memory links.
+	 *
+	 * The orchestration lives in {@link MemoryWeb}; this shell only opens leaves
+	 * and modals.
 	 */
 	private async remember(query: string): Promise<void> {
-		const searchNote = await createSearchNote(this.app, query);
-		// Make sure the index is built before the first search after load.
-		await this.index.ready();
-		const results = runSearch(this.app, this.index, query, searchNote);
-		new ResultsModal(this.app, query, results, (file) => {
-			linkFoundNote(this.app, searchNote, file).catch((err: unknown) => {
+		const session = await this.memoryWeb.remember(query);
+		// Open the search note in the active leaf so it's the note on screen
+		// while the results modal sits on top.
+		void this.app.workspace.getLeaf(false).openFile(session.searchNote);
+		new ResultsModal(this.app, query, session.results, (file) => {
+			this.memoryWeb.recordFound(session, file).catch((err: unknown) => {
 				console.error('Remember: failed to link found note', err);
 				new Notice('Remember: failed to link found note.');
 			});

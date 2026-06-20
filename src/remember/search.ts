@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { SearchIndex } from './search-index';
+import type { SearchIndexHandle } from './search-index';
 import { recognizeSearchNote } from '../memory-note';
 
 /** A single note that matched a Remember search. */
@@ -31,7 +31,7 @@ const SNIPPET_PAD = 60;
  */
 export function runSearch(
 	app: App,
-	index: SearchIndex,
+	index: SearchIndexHandle,
 	query: string,
 	exclude?: TFile,
 ): SearchResult[] {

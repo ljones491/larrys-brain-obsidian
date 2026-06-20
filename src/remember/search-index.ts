@@ -12,6 +12,16 @@ interface IndexedNote {
 	body: string;
 }
 
+/**
+ * The narrow slice of {@link SearchIndex} that querying code depends on:
+ * await readiness, then look a query up. Defined as its own interface so
+ * callers (and tests) can stand in a stub without the whole MiniSearch engine.
+ */
+export interface SearchIndexHandle {
+	ready(): Promise<void>;
+	search(query: string): IndexHit[];
+}
+
 /** A single index hit, mapped back to its live {@link TFile}. */
 export interface IndexHit {
 	file: TFile;
@@ -66,7 +76,7 @@ const PERSIST_DEBOUNCE_MS = 2000;
  * added, or removed while the plugin was off are re-read or dropped — so a
  * stale snapshot can never serve wrong results.
  */
-export class SearchIndex {
+export class SearchIndex implements SearchIndexHandle {
 	private mini = new MiniSearch<IndexedNote>(MINISEARCH_OPTIONS);
 
 	/** Per-path modification times, mirrored alongside the index for reconcile. */

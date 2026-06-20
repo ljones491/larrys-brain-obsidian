@@ -14,6 +14,11 @@ export default tseslint.config(
 		'package.json',
 		'package-lock.json',
 		'tsconfig.json',
+		// Test scaffolding: not shipped plugin code, and outside the tsconfig
+		// project the typed linter uses.
+		'vitest.config.ts',
+		'test',
+		'**/*.test.ts',
 	]),
 	{
 		languageOptions: {
