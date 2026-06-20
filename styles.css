@@ -90,6 +90,12 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-faint);
 }
 
+.remember-results-repeat-note {
+	color: var(--text-accent);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-3);
+}
+
 .remember-results-list {
 	display: flex;
 	flex-direction: column;
@@ -106,8 +112,36 @@ If your plugin does not need CSS, delete this file.
 	background: var(--background-modifier-hover);
 }
 
+/* A result the user has opened (and thus linked back into the search note). */
+.remember-result.is-linked {
+	background: var(--background-modifier-success);
+}
+
+.remember-result.is-linked .remember-result-title::after {
+	content: ' · remembered';
+	font-weight: var(--font-normal);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* Prior #search notes read a touch quieter than ordinary thought notes. */
+.remember-result.is-search-note .remember-result-title {
+	color: var(--text-muted);
+}
+
 .remember-result-title {
 	font-weight: var(--font-semibold);
+}
+
+.remember-result-tag {
+	margin-left: var(--size-4-2);
+	padding: 0 var(--size-4-1);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-normal);
+	color: var(--text-on-accent);
+	background: var(--text-accent);
+	vertical-align: middle;
 }
 
 .remember-result-snippet {

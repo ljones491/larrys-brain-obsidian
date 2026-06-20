@@ -8,7 +8,7 @@ import { LarryWriteModal } from './ui/larry-write-modal';
 import { RememberModal } from './ui/remember-modal';
 import { ResultsModal } from './ui/results-modal';
 import { createDumpNote } from './note';
-import { createSearchNote } from './search-note';
+import { createSearchNote, linkFoundNote } from './search-note';
 import { runSearch } from './search';
 
 export default class LarrysBrainPlugin extends Plugin {
@@ -56,15 +56,20 @@ export default class LarrysBrainPlugin extends Plugin {
 
 	/**
 	 * Record the search as a `#search` note, then run it and let the user
-	 * preview the matches and choose which note to open. Opening a result just
-	 * opens it for now; linking chosen results back into the search note is
-	 * future work.
+	 * preview the matches. Each result the user opens is linked back into the
+	 * search note as a `FOUND[[...]]` edge. The results modal stays open so a
+	 * single search can spawn several such memory links.
 	 */
 	private async remember(query: string): Promise<void> {
 		const searchNote = await createSearchNote(this.app, query);
 		const results = await runSearch(this.app, query, searchNote);
 		new ResultsModal(this.app, query, results, (file) => {
-			void this.app.workspace.getLeaf(false).openFile(file);
+			linkFoundNote(this.app, searchNote, file).catch((err: unknown) => {
+				console.error('Remember: failed to link found note', err);
+				new Notice('Remember: failed to link found note.');
+			});
+			// Open the result in a new tab so the search note stays put.
+			void this.app.workspace.getLeaf('tab').openFile(file);
 		}).open();
 	}
 

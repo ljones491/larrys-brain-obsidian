@@ -7,6 +7,10 @@ export interface SearchResult {
 	snippet: string;
 	/** Total term occurrences, used to rank results. */
 	score: number;
+	/** True when this match is itself a prior Remember `#search` note. */
+	isSearchNote: boolean;
+	/** True when this prior search note ran the same query as the current one. */
+	isRepeat: boolean;
 }
 
 /** Characters of context to show on each side of a snippet match. */
@@ -18,8 +22,9 @@ const SNIPPET_PAD = 60;
  *
  * Matching is a simple case-insensitive term scan over note titles and bodies:
  * the query is split into words, and a note scores by the total number of term
- * occurrences. Search notes (and the optional `exclude` file) are skipped so a
- * Remember search never turns up its own records.
+ * occurrences. Only the just-created search note (`exclude`) is skipped; prior
+ * `#search` notes are surfaced like any other note, flagged so the UI can mark
+ * them — and flagged as a repeat when they ran the same query.
  */
 export async function runSearch(
 	app: App,
@@ -34,10 +39,11 @@ export async function runSearch(
 		return [];
 	}
 
+	const normalizedQuery = normalizeQuery(query);
 	const results: SearchResult[] = [];
 
 	for (const file of app.vault.getMarkdownFiles()) {
-		if (file === exclude || isSearchNote(app, file)) {
+		if (file === exclude) {
 			continue;
 		}
 
@@ -62,10 +68,15 @@ export async function runSearch(
 		}
 
 		if (score > 0) {
+			const searchNoteQuery = getSearchNoteQuery(app, file);
 			results.push({
 				file,
 				score,
 				snippet: makeSnippet(haystack, firstHit),
+				isSearchNote: searchNoteQuery !== null,
+				isRepeat:
+					searchNoteQuery !== null &&
+					normalizeQuery(searchNoteQuery) === normalizedQuery,
 			});
 		}
 	}
@@ -74,13 +85,26 @@ export async function runSearch(
 	return results;
 }
 
-/** Whether `file` is itself a Remember search note (tagged `#search`). */
-function isSearchNote(app: App, file: TFile): boolean {
-	const tags: unknown = app.metadataCache.getFileCache(file)?.frontmatter?.tags;
-	if (Array.isArray(tags)) {
-		return tags.includes('search');
+/** Collapse whitespace and lowercase a query so repeats compare equal. */
+function normalizeQuery(query: string): string {
+	return query.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * If `file` is a Remember search note (tagged `#search`), return the query it
+ * recorded (its `query` frontmatter, or `''` if absent); otherwise `null`.
+ */
+function getSearchNoteQuery(app: App, file: TFile): string | null {
+	const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+	const tags: unknown = frontmatter?.tags;
+	const isSearch = Array.isArray(tags)
+		? tags.includes('search')
+		: tags === 'search';
+	if (!isSearch) {
+		return null;
 	}
-	return tags === 'search';
+	const query: unknown = frontmatter?.query;
+	return typeof query === 'string' ? query : '';
 }
 
 /** Extract a whitespace-collapsed excerpt of `text` centred on `index`. */

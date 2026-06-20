@@ -7,7 +7,9 @@ import { SearchResult } from '../search';
  * selecting one hands the file back to the caller via {@link onChoose}.
  *
  * Choosing is the point: only notes the user opens become memory-like links
- * back into the search note (future work). Browsing here does not link.
+ * back into the search note. The modal stays open across choices so one
+ * search can spawn several such links; chosen rows are marked as linked, and
+ * the user closes the modal manually when done.
  */
 export class ResultsModal extends Modal {
 	constructor(
@@ -36,19 +38,46 @@ export class ResultsModal extends Modal {
 			return;
 		}
 
+		const repeats = this.results.filter((r) => r.isRepeat).length;
+		if (repeats > 0) {
+			contentEl.createEl('div', {
+				cls: 'remember-results-repeat-note',
+				text:
+					repeats === 1
+						? "You've searched this once before."
+						: `You've searched this ${repeats} times before.`,
+			});
+		}
+
 		const list = contentEl.createEl('div', { cls: 'remember-results-list' });
 		for (const result of this.results) {
 			const row = list.createEl('div', { cls: 'remember-result' });
-			row.createEl('div', {
+			if (result.isSearchNote) {
+				row.addClass('is-search-note');
+			}
+			const title = row.createEl('div', {
 				cls: 'remember-result-title',
 				text: result.file.basename,
 			});
+			if (result.isRepeat) {
+				title.createEl('span', {
+					cls: 'remember-result-tag',
+					text: 'Same search',
+				});
+			} else if (result.isSearchNote) {
+				title.createEl('span', {
+					cls: 'remember-result-tag',
+					text: 'Past search',
+				});
+			}
 			row.createEl('div', {
 				cls: 'remember-result-snippet',
 				text: result.snippet,
 			});
 			row.addEventListener('click', () => {
-				this.close();
+				// Stay open so the user can link several notes from one search;
+				// mark this row so it reads as remembered.
+				row.addClass('is-linked');
 				this.onChoose(result.file);
 			});
 		}
