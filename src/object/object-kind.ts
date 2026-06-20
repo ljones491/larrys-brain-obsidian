@@ -10,6 +10,7 @@ import {
 	ensureFolder,
 	sanitizeFileName,
 } from '../utils/notes';
+import { writeSetBase } from './object';
 
 export type { ObjectKindDef };
 
@@ -26,7 +27,9 @@ export interface NewObjectKind {
  *
  * The note is titled by the kind's name; its instance tag is that name
  * normalized to a valid tag (e.g. "skill area" → `skill-area`). The contents
- * (frontmatter + description) come from the object-note schema.
+ * (frontmatter + description) come from the object-note schema. The kind's
+ * Bases set view is written silently alongside it, so the set is discoverable
+ * in the `sets/` folder from the moment the kind exists.
  */
 export async function createObjectKind(
 	app: App,
@@ -44,6 +47,8 @@ export async function createObjectKind(
 		`${META_FOLDER}/${baseName}`,
 		buildObjectKindContents(def),
 	);
+	// Maintain the kind's set view as a byproduct of defining it.
+	await writeSetBase(app, input.name, def);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
 }

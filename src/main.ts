@@ -14,8 +14,7 @@ import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
 import { CreateObjectModal } from './object/create-object-modal';
 import { ShuffleModal } from './object/shuffle-modal';
-import { ShowSetModal } from './object/show-set-modal';
-import { createObject, listObjectKinds, showSet } from './object/object';
+import { createObject, listObjectKinds } from './object/object';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -89,12 +88,6 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openShuffle(),
 		});
 
-		this.addCommand({
-			id: 'show-set',
-			name: 'Show set',
-			callback: () => this.openShowSet(),
-		});
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -143,20 +136,6 @@ export default class LarrysBrainPlugin extends Plugin {
 		new ShuffleModal(this.app, kinds, (file) => {
 			// Open the picked object in a new tab so the shuffle modal stays put.
 			void this.app.workspace.getLeaf('tab').openFile(file);
-		}).open();
-	}
-
-	private openShowSet(): void {
-		const kinds = listObjectKinds(this.app);
-		if (kinds.length === 0) {
-			new Notice('Define an object kind first.');
-			return;
-		}
-		new ShowSetModal(this.app, kinds, (kind) => {
-			showSet(this.app, kind).catch((err: unknown) => {
-				console.error('Show set: failed to open set', err);
-				new Notice('Show set: failed to open set.');
-			});
 		}).open();
 	}
 

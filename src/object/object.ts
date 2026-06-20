@@ -137,25 +137,26 @@ export async function createObject(app: App, input: NewObject): Promise<TFile> {
 }
 
 /**
- * Surface a kind's whole set as a persistent Bases table and open it — the
- * "see my sets" capability in .dev/GOAL.md. Ensures a `<name>.base` file exists
- * in {@link SETS_FOLDER}, filtered to the kind's instance tag with a column per
- * property, then opens it.
+ * Maintain a kind's Bases table: ensure a `<name>.base` file exists in
+ * {@link SETS_FOLDER}, filtered to the kind's instance tag with a column per
+ * property. Written silently when a kind is defined, so the set view is a
+ * guaranteed byproduct of having a kind, discoverable in the `sets/` folder.
  *
  * Create-if-missing on purpose: once the view exists the user may have tweaked
- * its columns or sorting, and a Bases view is meant to stick around, so a
- * re-run just reopens it rather than clobbering those edits. Unlike the other
- * set features this needs no runtime enumeration — Bases queries the set live.
+ * its columns or sorting, and a Bases view is meant to stick around, so this
+ * leaves an existing file untouched rather than clobbering those edits. Needs
+ * no runtime enumeration — Bases queries the set live.
  */
-export async function showSet(app: App, kind: ObjectKindOption): Promise<TFile> {
+export async function writeSetBase(
+	app: App,
+	name: string,
+	def: ObjectKindDef,
+): Promise<void> {
 	await ensureFolder(app, SETS_FOLDER);
-	const baseName = sanitizeFileName(kind.name) || (kind.def.objectTag.split('/').pop() ?? 'set');
+	const baseName = sanitizeFileName(name) || (def.objectTag.split('/').pop() ?? 'set');
 	const path = normalizePath(`${SETS_FOLDER}/${baseName}.base`);
-	const existing = app.vault.getAbstractFileByPath(path);
-	const file =
-		existing instanceof TFile
-			? existing
-			: await app.vault.create(path, buildBaseFile(kind.name, kind.def));
-	await app.workspace.getLeaf(false).openFile(file);
-	return file;
+	if (app.vault.getAbstractFileByPath(path) instanceof TFile) {
+		return;
+	}
+	await app.vault.create(path, buildBaseFile(name, def));
 }
