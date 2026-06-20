@@ -1,7 +1,7 @@
 {
 	"id": "larrys-brain",
 	"name": "Larry's Brain",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"minAppVersion": "1.0.0",
 	"description": "Larry's Brain for Obsidian. You've been warned.",
 	"author": "Larry Jones",

@@ -1,22 +1,68 @@
-import { Notice, Plugin } from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	LarrysBrainSettings,
 	LarrysBrainSettingTab,
 } from './settings';
-import { LarryWriteModal } from './ui/larry-write-modal';
-import { createDumpNote } from './note';
+import { LarryWriteModal } from './capture/larry-write-modal';
+import { RememberModal } from './remember/remember-modal';
+import { ResultsModal } from './remember/results-modal';
+import { createDumpNote } from './capture/note';
+import { MemoryWeb } from './remember/memory-web';
+import { SearchIndex } from './remember/search-index';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
+	private index!: SearchIndex;
+	private memoryWeb!: MemoryWeb;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Persist the index inside the plugin's own folder so restarts restore
+		// it instead of rebuilding the whole vault.
+		const snapshotPath = this.manifest.dir
+			? `${this.manifest.dir}/search-index.json`
+			: null;
+		this.index = new SearchIndex(this.app, snapshotPath);
+		this.memoryWeb = new MemoryWeb(this.app, this.index);
+		// Defer the one full scan until Obsidian's own cache is warm so startup
+		// stays light; afterwards only changed files are re-read.
+		this.app.workspace.onLayoutReady(() => void this.index.build());
+
+		// Keep the index current by reading a file only when it actually changes.
+		this.registerEvent(
+			this.app.vault.on('create', (f) => {
+				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on('modify', (f) => {
+				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on('delete', (f) => {
+				if (f instanceof TFile) void this.index.onDelete(f.path);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on('rename', (f, oldPath) => {
+				void this.index.onDelete(oldPath);
+				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
 
 		this.addCommand({
 			id: 'larry-write',
 			name: 'Larry write',
 			callback: () => this.openLarryWrite(),
+		});
+
+		this.addCommand({
+			id: 'remember',
+			name: 'Remember',
+			callback: () => this.openRemember(),
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -35,7 +81,43 @@ export default class LarrysBrainPlugin extends Plugin {
 		}).open();
 	}
 
-	onunload() {}
+	private openRemember(): void {
+		new RememberModal(this.app, (query) => {
+			this.remember(query).catch((err: unknown) => {
+				console.error('Remember: search failed', err);
+				new Notice('Remember: search failed.');
+			});
+		}).open();
+	}
+
+	/**
+	 * Run a Remember and surface it: open the recorded `#search` note, then let
+	 * the user preview the matches. Each result the user opens is linked back
+	 * into the search note as a `FOUND: [[...]]` edge. The results modal stays
+	 * open so a single search can spawn several such memory links.
+	 *
+	 * The orchestration lives in {@link MemoryWeb}; this shell only opens leaves
+	 * and modals.
+	 */
+	private async remember(query: string): Promise<void> {
+		const session = await this.memoryWeb.remember(query);
+		// Open the search note in the active leaf so it's the note on screen
+		// while the results modal sits on top.
+		void this.app.workspace.getLeaf(false).openFile(session.searchNote);
+		new ResultsModal(this.app, query, session.results, (file) => {
+			this.memoryWeb.recordFound(session, file).catch((err: unknown) => {
+				console.error('Remember: failed to link found note', err);
+				new Notice('Remember: failed to link found note.');
+			});
+			// Open the result in a new tab so the search note stays put.
+			void this.app.workspace.getLeaf('tab').openFile(file);
+		}).open();
+	}
+
+	onunload() {
+		// Flush any pending index write before we go.
+		void this.index.dispose();
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
