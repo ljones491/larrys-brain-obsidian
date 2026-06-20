@@ -5,7 +5,9 @@ import {
 	LarrysBrainSettingTab,
 } from './settings';
 import { LarryWriteModal } from './ui/larry-write-modal';
+import { RememberModal } from './ui/remember-modal';
 import { createDumpNote } from './note';
+import { createSearchNote } from './search-note';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -17,6 +19,12 @@ export default class LarrysBrainPlugin extends Plugin {
 			id: 'larry-write',
 			name: 'Larry write',
 			callback: () => this.openLarryWrite(),
+		});
+
+		this.addCommand({
+			id: 'remember',
+			name: 'Remember',
+			callback: () => this.openRemember(),
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -31,6 +39,15 @@ export default class LarrysBrainPlugin extends Plugin {
 			}).catch((err: unknown) => {
 				console.error('Larry write: failed to create note', err);
 				new Notice('Larry write: failed to create note.');
+			});
+		}).open();
+	}
+
+	private openRemember(): void {
+		new RememberModal(this.app, (query) => {
+			createSearchNote(this.app, query).catch((err: unknown) => {
+				console.error('Remember: failed to create search note', err);
+				new Notice('Remember: failed to create search note.');
 			});
 		}).open();
 	}

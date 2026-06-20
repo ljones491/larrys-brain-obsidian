@@ -44,3 +44,33 @@ If your plugin does not need CSS, delete this file.
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 }
+
+.remember-modal {
+	width: 80vw;
+	max-width: 800px;
+}
+
+/* Keep the input clear of the absolutely-positioned close (X) button. */
+.remember-modal .modal-content {
+	padding-top: 2em;
+}
+
+.remember-modal .remember-input {
+	width: 100%;
+	font-size: 1.8em;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+}
+
+.remember-modal .remember-input:focus,
+.remember-modal .remember-input:active {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+}
+
+.remember-hint {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+}
