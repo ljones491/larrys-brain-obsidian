@@ -1,10 +1,10 @@
 import { App, TFile } from 'obsidian';
-import { buildSearchNoteContents, SEARCH_TAG } from './memory-note';
+import { buildSearchNoteContents, SEARCH_TAG } from '../memory-note';
 import {
 	createUniqueNote,
 	makeFileStamp,
 	sanitizeFileName,
-} from './utils/notes';
+} from '../utils/notes';
 
 /**
  * Larry's Brain edge name for a link from a search note to a note the user

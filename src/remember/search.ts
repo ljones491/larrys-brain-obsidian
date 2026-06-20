@@ -1,6 +1,6 @@
 import { App, TFile } from 'obsidian';
 import { SearchIndex } from './search-index';
-import { recognizeSearchNote } from './memory-note';
+import { recognizeSearchNote } from '../memory-note';
 
 /** A single note that matched a Remember search. */
 export interface SearchResult {

@@ -1,5 +1,5 @@
 import { App, Modal, TFile } from 'obsidian';
-import { SearchResult } from '../search';
+import { SearchResult } from './search';
 
 /**
  * Presents the results of a Remember search and lets the user choose which

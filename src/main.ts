@@ -4,13 +4,13 @@ import {
 	LarrysBrainSettings,
 	LarrysBrainSettingTab,
 } from './settings';
-import { LarryWriteModal } from './ui/larry-write-modal';
-import { RememberModal } from './ui/remember-modal';
-import { ResultsModal } from './ui/results-modal';
-import { createDumpNote } from './note';
-import { createSearchNote, linkFoundNote } from './search-note';
-import { runSearch } from './search';
-import { SearchIndex } from './search-index';
+import { LarryWriteModal } from './capture/larry-write-modal';
+import { RememberModal } from './remember/remember-modal';
+import { ResultsModal } from './remember/results-modal';
+import { createDumpNote } from './capture/note';
+import { createSearchNote, linkFoundNote } from './remember/search-note';
+import { runSearch } from './remember/search';
+import { SearchIndex } from './remember/search-index';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;

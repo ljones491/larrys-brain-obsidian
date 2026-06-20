@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { generateTitle } from './title';
-import { buildDumpNoteContents, DumpNoteMeta } from './memory-note';
-import { createUniqueNote, makeFileStamp, sanitizeFileName } from './utils/notes';
+import { buildDumpNoteContents, DumpNoteMeta } from '../memory-note';
+import { createUniqueNote, makeFileStamp, sanitizeFileName } from '../utils/notes';
 
 export type { DumpNoteMeta };
 
