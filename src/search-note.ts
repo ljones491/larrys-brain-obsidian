@@ -1,13 +1,10 @@
 import { App, TFile } from 'obsidian';
+import { buildSearchNoteContents, SEARCH_TAG } from './memory-note';
 import {
 	createUniqueNote,
-	makeDateStamp,
 	makeFileStamp,
 	sanitizeFileName,
 } from './utils/notes';
-
-/** Tag applied to every search note. */
-const SEARCH_TAG = 'search';
 
 /**
  * Larry's Brain edge name for a link from a search note to a note the user
@@ -29,7 +26,7 @@ export async function createSearchNote(
 	query: string,
 ): Promise<TFile> {
 	const baseName = sanitizeFileName(`${query} - ${SEARCH_TAG}`) || makeFileStamp();
-	const contents = `${makeFrontmatter(query)}Search for "${query}".\n\n`;
+	const contents = buildSearchNoteContents(query);
 	const file = await createUniqueNote(app, baseName, contents);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
@@ -51,21 +48,4 @@ export async function linkFoundNote(
 	if (data.includes(link)) return;
 	const separator = data.length > 0 && !data.endsWith('\n') ? '\n' : '';
 	await app.vault.modify(searchNote, `${data}${separator}${link}\n`);
-}
-
-/**
- * Build the YAML frontmatter block for a search note: the date of the
- * search, its `#search` tag, the query, and the source (always the user).
- */
-function makeFrontmatter(query: string): string {
-	return [
-		'---',
-		`date: ${makeDateStamp()}`,
-		'tags:',
-		`  - ${SEARCH_TAG}`,
-		`query: ${JSON.stringify(query)}`,
-		'source: user',
-		'---',
-		'',
-	].join('\n');
 }

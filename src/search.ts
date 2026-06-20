@@ -1,5 +1,6 @@
 import { App, TFile } from 'obsidian';
 import { SearchIndex } from './search-index';
+import { recognizeSearchNote } from './memory-note';
 
 /** A single note that matched a Remember search. */
 export interface SearchResult {
@@ -55,16 +56,18 @@ export function runSearch(
 				}
 			}
 
-			const searchNoteQuery = getSearchNoteQuery(app, hit.file);
+			const searchNote = recognizeSearchNote(
+				app.metadataCache.getFileCache(hit.file)?.frontmatter,
+			);
 			return {
 				file: hit.file,
 				score: hit.score,
 				snippet: makeSnippet(hit.body, firstBodyHit),
 				terms: hit.terms,
-				isSearchNote: searchNoteQuery !== null,
+				isSearchNote: searchNote !== null,
 				isRepeat:
-					searchNoteQuery !== null &&
-					normalizeQuery(searchNoteQuery) === normalizedQuery,
+					searchNote !== null &&
+					normalizeQuery(searchNote.query) === normalizedQuery,
 			};
 		});
 }
@@ -72,23 +75,6 @@ export function runSearch(
 /** Collapse whitespace and lowercase a query so repeats compare equal. */
 function normalizeQuery(query: string): string {
 	return query.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-/**
- * If `file` is a Remember search note (tagged `#search`), return the query it
- * recorded (its `query` frontmatter, or `''` if absent); otherwise `null`.
- */
-function getSearchNoteQuery(app: App, file: TFile): string | null {
-	const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
-	const tags: unknown = frontmatter?.tags;
-	const isSearch = Array.isArray(tags)
-		? tags.includes('search')
-		: tags === 'search';
-	if (!isSearch) {
-		return null;
-	}
-	const query: unknown = frontmatter?.query;
-	return typeof query === 'string' ? query : '';
 }
 
 /**
