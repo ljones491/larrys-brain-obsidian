@@ -74,3 +74,43 @@ If your plugin does not need CSS, delete this file.
 	font-size: var(--font-ui-smaller);
 	color: var(--text-faint);
 }
+
+.remember-results-modal {
+	width: 80vw;
+	max-width: 800px;
+}
+
+.remember-results-header {
+	font-size: var(--font-ui-medium);
+	color: var(--text-muted);
+	margin-bottom: var(--size-4-3);
+}
+
+.remember-results-empty {
+	color: var(--text-faint);
+}
+
+.remember-results-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.remember-result {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	cursor: pointer;
+}
+
+.remember-result:hover {
+	background: var(--background-modifier-hover);
+}
+
+.remember-result-title {
+	font-weight: var(--font-semibold);
+}
+
+.remember-result-snippet {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}

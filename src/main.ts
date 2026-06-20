@@ -6,8 +6,10 @@ import {
 } from './settings';
 import { LarryWriteModal } from './ui/larry-write-modal';
 import { RememberModal } from './ui/remember-modal';
+import { ResultsModal } from './ui/results-modal';
 import { createDumpNote } from './note';
 import { createSearchNote } from './search-note';
+import { runSearch } from './search';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -45,10 +47,24 @@ export default class LarrysBrainPlugin extends Plugin {
 
 	private openRemember(): void {
 		new RememberModal(this.app, (query) => {
-			createSearchNote(this.app, query).catch((err: unknown) => {
-				console.error('Remember: failed to create search note', err);
-				new Notice('Remember: failed to create search note.');
+			this.remember(query).catch((err: unknown) => {
+				console.error('Remember: search failed', err);
+				new Notice('Remember: search failed.');
 			});
+		}).open();
+	}
+
+	/**
+	 * Record the search as a `#search` note, then run it and let the user
+	 * preview the matches and choose which note to open. Opening a result just
+	 * opens it for now; linking chosen results back into the search note is
+	 * future work.
+	 */
+	private async remember(query: string): Promise<void> {
+		const searchNote = await createSearchNote(this.app, query);
+		const results = await runSearch(this.app, query, searchNote);
+		new ResultsModal(this.app, query, results, (file) => {
+			void this.app.workspace.getLeaf(false).openFile(file);
 		}).open();
 	}
 
