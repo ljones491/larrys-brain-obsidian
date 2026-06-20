@@ -1,4 +1,4 @@
-import { Notice, Plugin } from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	LarrysBrainSettings,
@@ -10,12 +10,42 @@ import { ResultsModal } from './ui/results-modal';
 import { createDumpNote } from './note';
 import { createSearchNote, linkFoundNote } from './search-note';
 import { runSearch } from './search';
+import { SearchIndex } from './search-index';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
+	private index!: SearchIndex;
 
 	async onload() {
 		await this.loadSettings();
+
+		this.index = new SearchIndex(this.app);
+		// Defer the one full scan until Obsidian's own cache is warm so startup
+		// stays light; afterwards only changed files are re-read.
+		this.app.workspace.onLayoutReady(() => void this.index.build());
+
+		// Keep the index current by reading a file only when it actually changes.
+		this.registerEvent(
+			this.app.vault.on('create', (f) => {
+				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on('modify', (f) => {
+				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on('delete', (f) => {
+				if (f instanceof TFile) void this.index.onDelete(f.path);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on('rename', (f, oldPath) => {
+				void this.index.onDelete(oldPath);
+				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
 
 		this.addCommand({
 			id: 'larry-write',
@@ -62,7 +92,9 @@ export default class LarrysBrainPlugin extends Plugin {
 	 */
 	private async remember(query: string): Promise<void> {
 		const searchNote = await createSearchNote(this.app, query);
-		const results = await runSearch(this.app, query, searchNote);
+		// Make sure the index is built before the first search after load.
+		await this.index.ready();
+		const results = runSearch(this.app, this.index, query, searchNote);
 		new ResultsModal(this.app, query, results, (file) => {
 			linkFoundNote(this.app, searchNote, file).catch((err: unknown) => {
 				console.error('Remember: failed to link found note', err);

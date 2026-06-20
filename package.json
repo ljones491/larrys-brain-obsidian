@@ -25,6 +25,7 @@
 		"typescript-eslint": "^8.59.1"
 	},
 	"dependencies": {
-		"compromise": "^14.15.1"
+		"compromise": "^14.15.1",
+		"minisearch": "^7.2.0"
 	}
 }

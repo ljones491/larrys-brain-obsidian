@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { SearchIndex } from './search-index';
 
 /** A single note that matched a Remember search. */
 export interface SearchResult {
@@ -7,7 +8,7 @@ export interface SearchResult {
 	snippet: string;
 	/** Lowercased query terms that matched, so the UI can highlight them. */
 	terms: string[];
-	/** Total term occurrences, used to rank results. */
+	/** Relevance score (BM25, from the index), used to rank results. */
 	score: number;
 	/** True when this match is itself a prior Remember `#search` note. */
 	isSearchNote: boolean;
@@ -19,88 +20,53 @@ export interface SearchResult {
 const SNIPPET_PAD = 60;
 
 /**
- * Search the vault for notes matching `query` and return them ranked by how
- * many query terms they contain.
+ * Search the vault for notes matching `query`, ranked by relevance.
  *
- * Matching is a simple case-insensitive term scan over note titles and bodies:
- * the query is split into words, and a note scores by the total number of term
- * occurrences. Only the just-created search note (`exclude`) is skipped; prior
- * `#search` notes are surfaced like any other note, flagged so the UI can mark
- * them — and flagged as a repeat when they ran the same query.
+ * Matching and scoring are delegated to the prebuilt {@link SearchIndex}
+ * (BM25, title boosting, prefix + fuzzy). This function is the thin
+ * Remember-specific layer over those hits: it drops the just-created search
+ * note (`exclude`), centres a preview snippet on the first body match, and
+ * flags prior `#search` notes — marking a repeat when one ran the same query.
  */
-export async function runSearch(
+export function runSearch(
 	app: App,
+	index: SearchIndex,
 	query: string,
 	exclude?: TFile,
-): Promise<SearchResult[]> {
-	const terms = query
-		.toLowerCase()
-		.split(/\s+/)
-		.filter((t) => t.length > 0);
-	if (terms.length === 0) {
+): SearchResult[] {
+	if (query.trim().length === 0) {
 		return [];
 	}
 
 	const normalizedQuery = normalizeQuery(query);
-	const results: SearchResult[] = [];
 
-	for (const file of app.vault.getMarkdownFiles()) {
-		if (file === exclude) {
-			continue;
-		}
-
-		const content = await app.vault.cachedRead(file);
-		// Skip the YAML frontmatter so previews show body text, not metadata.
-		const bodyStart = getBodyStart(app, file);
-		const body = content.slice(bodyStart);
-		const lowerBody = body.toLowerCase();
-		const lowerTitle = file.basename.toLowerCase();
-
-		let score = 0;
-		// Prefer to centre the snippet on the first term that appears in the
-		// body; the title is matched too but makes for a poor preview.
-		let firstBodyHit = -1;
-		const matched: string[] = [];
-		for (const term of terms) {
-			let hit = false;
-
-			if (lowerTitle.includes(term)) {
-				score++;
-				hit = true;
+	return index
+		.search(query)
+		.filter((hit) => hit.file !== exclude)
+		.map((hit) => {
+			// Centre the snippet on the first matched term that appears in the
+			// body; the title is matched too but makes for a poor preview.
+			const lowerBody = hit.body.toLowerCase();
+			let firstBodyHit = -1;
+			for (const term of hit.terms) {
+				const at = lowerBody.indexOf(term.toLowerCase());
+				if (at !== -1 && (firstBodyHit === -1 || at < firstBodyHit)) {
+					firstBodyHit = at;
+				}
 			}
 
-			let from = lowerBody.indexOf(term);
-			if (from !== -1 && (firstBodyHit === -1 || from < firstBodyHit)) {
-				firstBodyHit = from;
-			}
-			while (from !== -1) {
-				score++;
-				hit = true;
-				from = lowerBody.indexOf(term, from + term.length);
-			}
-
-			if (hit) {
-				matched.push(term);
-			}
-		}
-
-		if (score > 0) {
-			const searchNoteQuery = getSearchNoteQuery(app, file);
-			results.push({
-				file,
-				score,
-				snippet: makeSnippet(body, firstBodyHit),
-				terms: matched,
+			const searchNoteQuery = getSearchNoteQuery(app, hit.file);
+			return {
+				file: hit.file,
+				score: hit.score,
+				snippet: makeSnippet(hit.body, firstBodyHit),
+				terms: hit.terms,
 				isSearchNote: searchNoteQuery !== null,
 				isRepeat:
 					searchNoteQuery !== null &&
 					normalizeQuery(searchNoteQuery) === normalizedQuery,
-			});
-		}
-	}
-
-	results.sort((a, b) => b.score - a.score);
-	return results;
+			};
+		});
 }
 
 /** Collapse whitespace and lowercase a query so repeats compare equal. */
@@ -123,16 +89,6 @@ function getSearchNoteQuery(app: App, file: TFile): string | null {
 	}
 	const query: unknown = frontmatter?.query;
 	return typeof query === 'string' ? query : '';
-}
-
-/**
- * Offset into a note's content where the body begins, i.e. just past any YAML
- * frontmatter. Uses Obsidian's parsed frontmatter position so the boundary is
- * robust; falls back to 0 when there is none.
- */
-function getBodyStart(app: App, file: TFile): number {
-	const end = app.metadataCache.getFileCache(file)?.frontmatterPosition?.end;
-	return end ? end.offset : 0;
 }
 
 /**
