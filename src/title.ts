@@ -28,12 +28,15 @@ const TIER_SKIP = -1; // pronouns and the like — never a useful title
  * Uses compromise to pull out noun phrases and ranks them by tier first —
  * named entities (people, places, organizations) beat other proper nouns,
  * which beat common nouns — with frequency then first appearance breaking
- * ties within a tier. The winner is rendered as "X - <suffix>" so the topic
- * leads the filename. Returns an empty string when no usable noun phrase is
- * found, so callers can fall back to a timestamp.
+ * ties within a tier. When a dump has no usable noun (e.g. a verb-driven
+ * "Sometimes I eat too much."), it falls back to the predicate of the first
+ * sentence, then to its leading words, so nounless notes still get a topical
+ * title. The winner is rendered as "X - <suffix>" so the topic leads the
+ * filename. Returns an empty string only when nothing usable is found, so
+ * callers can fall back to a timestamp.
  */
 export function generateTitle(text: string, suffix: string): string {
-	const subject = pickSubject(text);
+	const subject = pickSubject(text) || pickPredicate(text) || leadingWords(text);
 	if (!subject) return '';
 	const trimmed = suffix.trim();
 	return trimmed ? `${titleCase(subject)} - ${trimmed}` : titleCase(subject);
@@ -73,6 +76,22 @@ function pickSubject(text: string): string {
 	}
 
 	return best?.display ?? '';
+}
+
+/**
+ * The predicate of the first sentence — its first verb through the clause end
+ * (e.g. "Sometimes I eat too much." → "eat too much"). Used when no noun
+ * subject exists. Returns an empty string when the sentence has no verb.
+ */
+function pickPredicate(text: string): string {
+	const predicate = nlp(text).sentences().first().match('#Verb+ .*').text();
+	return cleanPhrase(predicate);
+}
+
+/** The leading words of the first sentence — a last resort before a timestamp. */
+function leadingWords(text: string): string {
+	const sentence = nlp(text).sentences().first().text() || text;
+	return cleanPhrase(sentence);
 }
 
 /** Whether `a` should outrank `b`: tier, then frequency, then first seen. */
