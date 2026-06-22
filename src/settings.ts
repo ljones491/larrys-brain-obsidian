@@ -6,11 +6,20 @@ export interface LarrysBrainSettings {
 	tag: string;
 	/** Suffix appended to generated titles, e.g. `X - hmm`. Blank omits it. */
 	titleSuffix: string;
+	/**
+	 * Edge names recently written by the Relate command, most-recent first.
+	 * Offered as autocomplete suggestions so common edges (RELATES_TO, IDEA_FOR)
+	 * don't have to be retyped. Not user-editable in the settings tab; it fills
+	 * itself in as edges are used.
+	 */
+	recentEdgeTypes: string[];
 }
 
 export const DEFAULT_SETTINGS: LarrysBrainSettings = {
 	tag: 'thought',
 	titleSuffix: 'hmm',
+	// Seeded with the edges GOAL.md names so the first relate has suggestions.
+	recentEdgeTypes: ['RELATES_TO', 'IDEA_FOR'],
 };
 
 export class LarrysBrainSettingTab extends PluginSettingTab {
