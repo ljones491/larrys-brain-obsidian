@@ -155,3 +155,10 @@ If your plugin does not need CSS, delete this file.
 	border-radius: var(--radius-s);
 	padding: 0 1px;
 }
+
+/* The note a relate links from, shown above the edge/target fields. */
+.relate-subject {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-3);
+}

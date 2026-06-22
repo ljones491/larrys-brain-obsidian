@@ -28,6 +28,10 @@ recognizes a prior search note and flags a **repeat** when the query matches.
 A typed link from one note to another, written in the note body as
 `EDGE: [[Note Title]]`. The default edge (a plain `[[...]]`) reads as `LINKS`. The
 first named edge is `FOUND`, added to a search note for each result the user opens.
+Edges are also user-named via **Relate**: from the note on screen (the *subject*),
+the user names an edge (e.g. `RELATES_TO`, `IDEA_FOR`) to another note (the
+*object*), and it's written into the subject. Edges read as actions from subject
+to object, so they always land in the subject's body.
 
 ## Memory web
 

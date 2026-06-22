@@ -1,5 +1,6 @@
-import { App, DataAdapter, TFile } from 'obsidian';
+import { App, CachedMetadata, DataAdapter, TFile } from 'obsidian';
 import MiniSearch, { AsPlainObject, Options } from 'minisearch';
+import { isInMetaFolder, isMetaTag } from '../meta';
 
 /**
  * What we keep in the index per note. `body` is stored so result snippets can
@@ -58,7 +59,7 @@ interface Snapshot {
 }
 
 /** Bump when the index shape or options change, to invalidate old snapshots. */
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 
 /** Coalesce bursts of edits into a single write this many ms after the last. */
 const PERSIST_DEBOUNCE_MS = 2000;
@@ -123,7 +124,7 @@ export class SearchIndex implements SearchIndexHandle {
 		}
 	}
 
-	/** Index every note in the vault from scratch. */
+	/** Index every note in the vault from scratch, skipping meta notes. */
 	private async rebuild(): Promise<void> {
 		const entries = await Promise.all(
 			this.app.vault.getMarkdownFiles().map(async (f) => ({
@@ -131,9 +132,11 @@ export class SearchIndex implements SearchIndexHandle {
 				mtime: f.stat.mtime,
 			})),
 		);
-		this.mini.addAll(entries.map((e) => e.doc));
 		for (const { doc, mtime } of entries) {
-			this.mtimes.set(doc.id, mtime);
+			if (doc) {
+				this.mini.add(doc);
+				this.mtimes.set(doc.id, mtime);
+			}
 		}
 		this.schedulePersist();
 	}
@@ -164,11 +167,17 @@ export class SearchIndex implements SearchIndexHandle {
 		const docs = await Promise.all(
 			stale.map(async (f) => ({
 				doc: await this.toDoc(f),
+				path: f.path,
 				mtime: f.stat.mtime,
 			})),
 		);
-		for (const { doc, mtime } of docs) {
-			this.put(doc, mtime);
+		for (const { doc, path, mtime } of docs) {
+			// A note that became a meta note is dropped rather than re-indexed.
+			if (doc) {
+				this.put(doc, mtime);
+			} else {
+				this.remove(path);
+			}
 			changed = true;
 		}
 
@@ -183,7 +192,14 @@ export class SearchIndex implements SearchIndexHandle {
 	 */
 	async onModify(file: TFile): Promise<void> {
 		await this.build();
-		this.put(await this.toDoc(file), file.stat.mtime);
+		const doc = await this.toDoc(file);
+		// Meta notes never enter the index; if one was edited into existence (or
+		// a note was retagged as meta), make sure it isn't lingering either.
+		if (doc) {
+			this.put(doc, file.stat.mtime);
+		} else {
+			this.remove(file.path);
+		}
 		this.schedulePersist();
 	}
 
@@ -238,17 +254,53 @@ export class SearchIndex implements SearchIndexHandle {
 		this.mtimes.delete(id);
 	}
 
-	private async toDoc(file: TFile): Promise<IndexedNote> {
+	/**
+	 * Build the indexed document for a file, or `null` if it must stay out of
+	 * search: a non-markdown file (the plugin's own `.base` set views among them,
+	 * delivered by create/modify events the full scan never sees) or a Larry's
+	 * Brain meta note (under the `larrys-meta` folder or tag).
+	 */
+	private async toDoc(file: TFile): Promise<IndexedNote | null> {
+		if (file.extension !== 'md') {
+			return null;
+		}
+		const cache = this.app.metadataCache.getFileCache(file);
+		if (this.isMetaNote(file, cache)) {
+			return null;
+		}
 		const content = await this.app.vault.cachedRead(file);
 		// Skip YAML frontmatter so previews and matches are over body text.
-		const bodyStart =
-			this.app.metadataCache.getFileCache(file)?.frontmatterPosition?.end
-				?.offset ?? 0;
+		const bodyStart = cache?.frontmatterPosition?.end?.offset ?? 0;
 		return {
 			id: file.path,
 			title: file.basename,
 			body: content.slice(bodyStart),
 		};
+	}
+
+	/**
+	 * Whether a note is a Larry's Brain meta note. Recognized by location first
+	 * (anything under the meta folder), which holds even before the metadata
+	 * cache has parsed a freshly created note's frontmatter; then by a
+	 * `larrys-meta` tag (frontmatter or inline) for meta notes living elsewhere.
+	 */
+	private isMetaNote(file: TFile, cache: CachedMetadata | null): boolean {
+		if (isInMetaFolder(file.path)) {
+			return true;
+		}
+		if (!cache) {
+			return false;
+		}
+		const fmTags: unknown = cache.frontmatter?.tags;
+		const fmList = Array.isArray(fmTags)
+			? fmTags
+			: fmTags != null
+				? [fmTags]
+				: [];
+		if (fmList.some((t) => typeof t === 'string' && isMetaTag(t))) {
+			return true;
+		}
+		return (cache.tags ?? []).some((t) => isMetaTag(t.tag));
 	}
 
 	/** Restore the index from disk. Returns false (and leaves it empty) on any

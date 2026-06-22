@@ -49,6 +49,14 @@ Custom command name: `Larry's Brain: Remember`. Opens search box. You search. Re
 
 Memory web.
 
+### Objects
+
+Larry write notes about things. Larry group things into sets of things. Larry sleep well at night knowing sets exist.
+
+### Relate
+
+Larry see note. Note remind Larry of something else. Larry link.
+
 ### What Else?
 
 `undefined` type beat.

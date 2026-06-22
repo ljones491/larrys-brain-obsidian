@@ -10,6 +10,21 @@ import { ResultsModal } from './remember/results-modal';
 import { createDumpNote } from './capture/note';
 import { MemoryWeb } from './remember/memory-web';
 import { SearchIndex } from './remember/search-index';
+import { DefineObjectKindModal } from './object/define-object-kind-modal';
+import { createObjectKind } from './object/object-kind';
+import { CreateObjectModal } from './object/create-object-modal';
+import { ShuffleModal } from './object/shuffle-modal';
+import { createObject, listObjectKinds, writeSetBase } from './object/object';
+import type { ObjectKindOption } from './object/object';
+import { recognizeObjectKind } from './object/object-note';
+import { RelateModal, RelateChoice } from './relate/relate-modal';
+import { RelateSearchModal } from './relate/relate-search-modal';
+import {
+	relateToExisting,
+	relateToNewObject,
+	relateToNewThought,
+} from './relate/relate';
+import { normalizeEdgeType } from './edge';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -53,6 +68,23 @@ export default class LarrysBrainPlugin extends Plugin {
 			}),
 		);
 
+		// Keep each kind's set view in sync with its definition: when a kind note's
+		// frontmatter changes (a property added, removed, or reordered), rewrite
+		// the column list of its `.base`, leaving the user's filters and sorting
+		// alone. `changed` fires after the frontmatter is parsed, so the cache is
+		// current; non-kind notes are rejected cheaply by the tag check.
+		this.registerEvent(
+			this.app.metadataCache.on('changed', (file, _data, cache) => {
+				const def = recognizeObjectKind(cache.frontmatter);
+				if (!def || def.objectTag.length === 0) {
+					return;
+				}
+				writeSetBase(this.app, file.basename, def).catch((err: unknown) => {
+					console.error('Object kind: failed to sync set view', err);
+				});
+			}),
+		);
+
 		this.addCommand({
 			id: 'larry-write',
 			name: 'Larry write',
@@ -63,6 +95,41 @@ export default class LarrysBrainPlugin extends Plugin {
 			id: 'remember',
 			name: 'Remember',
 			callback: () => this.openRemember(),
+		});
+
+		this.addCommand({
+			id: 'define-object-kind',
+			name: 'Define object kind',
+			callback: () => this.openDefineObjectKind(),
+		});
+
+		this.addCommand({
+			id: 'create-object',
+			name: 'Create object',
+			callback: () => this.openCreateObject(),
+		});
+
+		this.addCommand({
+			id: 'shuffle',
+			name: 'Shuffle',
+			callback: () => this.openShuffle(),
+		});
+
+		// Relate acts on the note currently on screen, so it's only available
+		// when one is open; checkCallback hides it otherwise.
+		this.addCommand({
+			id: 'relate',
+			name: 'Relate note',
+			checkCallback: (checking) => {
+				const subject = this.app.workspace.getActiveFile();
+				if (!subject) {
+					return false;
+				}
+				if (!checking) {
+					this.openRelate(subject);
+				}
+				return true;
+			},
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -78,6 +145,41 @@ export default class LarrysBrainPlugin extends Plugin {
 				console.error('Larry write: failed to create note', err);
 				new Notice('Larry write: failed to create note.');
 			});
+		}).open();
+	}
+
+	private openDefineObjectKind(): void {
+		new DefineObjectKindModal(this.app, (kind) => {
+			createObjectKind(this.app, kind).catch((err: unknown) => {
+				console.error('Define object kind: failed to create note', err);
+				new Notice('Define object kind: failed to create note.');
+			});
+		}).open();
+	}
+
+	private openCreateObject(): void {
+		const kinds = listObjectKinds(this.app);
+		if (kinds.length === 0) {
+			new Notice('Define an object kind first.');
+			return;
+		}
+		new CreateObjectModal(this.app, kinds, (object) => {
+			createObject(this.app, object).catch((err: unknown) => {
+				console.error('Create object: failed to create note', err);
+				new Notice('Create object: failed to create note.');
+			});
+		}).open();
+	}
+
+	private openShuffle(): void {
+		const kinds = listObjectKinds(this.app);
+		if (kinds.length === 0) {
+			new Notice('Define an object kind first.');
+			return;
+		}
+		new ShuffleModal(this.app, kinds, (file) => {
+			// Open the picked object in a new tab so the shuffle modal stays put.
+			void this.app.workspace.getLeaf('tab').openFile(file);
 		}).open();
 	}
 
@@ -112,6 +214,92 @@ export default class LarrysBrainPlugin extends Plugin {
 			// Open the result in a new tab so the search note stays put.
 			void this.app.workspace.getLeaf('tab').openFile(file);
 		}).open();
+	}
+
+	/**
+	 * Relate the note on screen (`subject`) to another note with a typed edge.
+	 * First gathers the edge name and how to supply its object; then opens the
+	 * matching follow-on modal (capture, create-object, or a note picker) and
+	 * writes the edge once the object is known. The edge always lands in the
+	 * subject — edges read as actions from subject to object.
+	 */
+	private openRelate(subject: TFile): void {
+		const kinds = listObjectKinds(this.app);
+		new RelateModal(
+			this.app,
+			{
+				subjectName: subject.basename,
+				recentEdgeTypes: this.settings.recentEdgeTypes,
+				canCreateObject: kinds.length > 0,
+			},
+			(choice) => {
+				void this.rememberEdgeType(choice.edgeType);
+				this.dispatchRelate(subject, choice, kinds);
+			},
+		).open();
+	}
+
+	/** Open the follow-on modal for the chosen object source and write the edge. */
+	private dispatchRelate(
+		subject: TFile,
+		choice: RelateChoice,
+		kinds: ObjectKindOption[],
+	): void {
+		const fail = (err: unknown) => {
+			console.error('Relate: failed to link note', err);
+			new Notice('Relate: failed to link note.');
+		};
+
+		switch (choice.mode) {
+			case 'thought':
+				new LarryWriteModal(this.app, (text) => {
+					relateToNewThought(this.app, subject, choice.edgeType, text, {
+						tag: this.settings.tag,
+						titleSuffix: this.settings.titleSuffix,
+					}).catch(fail);
+				}).open();
+				break;
+			case 'object':
+				new CreateObjectModal(this.app, kinds, (object) => {
+					relateToNewObject(this.app, subject, choice.edgeType, object).catch(
+						fail,
+					);
+				}).open();
+				break;
+			case 'existing':
+				// Search by relevance (body + title) instead of title-only fuzzy.
+				// The link comes from an existing note, so nothing is logged — this
+				// is a read-only search. The subject is excluded so it can't link
+				// to itself; meta notes are excluded by the index.
+				new RelateSearchModal(
+					this.app,
+					(query) => this.memoryWeb.search(query, subject),
+					(file) => {
+						relateToExisting(this.app, subject, choice.edgeType, file)
+							// Open the linked note in a new tab so the subject stays put.
+							.then(() => this.app.workspace.getLeaf('tab').openFile(file))
+							.catch(fail);
+					},
+				).open();
+				break;
+		}
+	}
+
+	/**
+	 * Record an edge name as recently used, normalized and most-recent first, so
+	 * the Relate modal can suggest it next time. Capped so the list stays short.
+	 */
+	private async rememberEdgeType(raw: string): Promise<void> {
+		const type = normalizeEdgeType(raw);
+		if (type.length === 0) {
+			return;
+		}
+		const recent = [
+			type,
+			...this.settings.recentEdgeTypes.filter((t) => t !== type),
+		].slice(0, 10);
+		this.settings.recentEdgeTypes = recent;
+		await this.saveSettings();
 	}
 
 	onunload() {

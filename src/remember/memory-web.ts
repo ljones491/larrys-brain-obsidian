@@ -2,18 +2,12 @@ import type { App, TFile } from 'obsidian';
 import type { SearchIndexHandle } from './search-index';
 import { runSearch, SearchResult } from './search';
 import { buildSearchNoteContents, SEARCH_TAG } from '../memory-note';
+import { appendEdge, FOUND_EDGE } from '../edge';
 import {
 	createUniqueNote,
 	makeFileStamp,
 	sanitizeFileName,
 } from '../utils/notes';
-
-/**
- * Larry's Brain edge name for a link from a search note to a note the user
- * opened from its results. This is the first use of the edge syntax
- * `EDGE: [[Note Title]]`; the default edge (plain `[[...]]`) reads as `LINKS`.
- */
-const FOUND_EDGE = 'FOUND';
 
 /**
  * One run of Remember: the `#search` note it recorded and the results it
@@ -56,20 +50,25 @@ export class MemoryWeb {
 	}
 
 	/**
+	 * Run a search without recording anything — the read-only counterpart to
+	 * {@link remember}. Relate uses this to pick an existing note by relevance
+	 * (body and title), not just title: the link is coming *from* an existing
+	 * note, so there's no Remember to log. Pass `exclude` to drop a note from
+	 * the results (e.g. the relate subject, which shouldn't link to itself).
+	 */
+	async search(query: string, exclude?: TFile): Promise<SearchResult[]> {
+		await this.index.ready();
+		return runSearch(this.app, this.index, query, exclude);
+	}
+
+	/**
 	 * Record that the user opened `found` from `session` by appending a
 	 * `FOUND: [[Note Title]]` edge to the session's `#search` note. Idempotent:
 	 * an already-present link for the same note is left untouched, so re-opening
 	 * a result from a still-open results modal won't duplicate the edge.
 	 */
 	async recordFound(session: RememberSession, found: TFile): Promise<void> {
-		const link = `${FOUND_EDGE}: [[${found.basename}]]`;
-		const data = await this.app.vault.read(session.searchNote);
-		if (data.includes(link)) return;
-		const separator = data.length > 0 && !data.endsWith('\n') ? '\n' : '';
-		await this.app.vault.modify(
-			session.searchNote,
-			`${data}${separator}${link}\n`,
-		);
+		await appendEdge(this.app, session.searchNote, FOUND_EDGE, found.basename);
 	}
 
 	/**

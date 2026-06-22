@@ -101,6 +101,10 @@ npm run build
 ## Versioning & releases
 
 - Bump `version` in `manifest.json` (SemVer) and update `versions.json` to map plugin version → minimum app version.
+- The version lives in three files that must stay in sync: `package.json`, `manifest.json`, and `versions.json`.
+- Canonical bump: run `npm version <major|minor|patch>` (or set an explicit version). npm writes the new version into `package.json`, then the `version` script runs `version-bump.mjs`, which copies that version into `manifest.json` and adds a `"<version>": "<minAppVersion>"` entry to `versions.json` (using `minAppVersion` from `manifest.json`). It then stages `manifest.json` and `versions.json`.
+- `version-bump.mjs` only touches `manifest.json` and `versions.json`; it reads the target from `npm_package_version`, so `package.json` must already hold the new version (npm handles that). It will not overwrite an existing `versions.json` entry.
+- If bumping by hand instead of via npm, edit all three files yourself: same SemVer in `package.json` and `manifest.json`, plus a new `versions.json` entry.
 - Create a GitHub release whose tag exactly matches `manifest.json`'s `version`. Do not use a leading `v`.
 - Attach `manifest.json`, `main.js`, and `styles.css` (if present) to the release as individual assets.
 - After the initial release, follow the process to add/update your plugin in the community catalog as required.

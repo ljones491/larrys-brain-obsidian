@@ -86,6 +86,25 @@ describe('MemoryWeb', () => {
 		expect(paths).not.toContain(session.searchNote.path);
 	});
 
+	it('searches without recording a search note, and can exclude one file', async () => {
+		const app = new FakeApp({
+			'dog.md': 'a note about a dog',
+			'cat.md': 'a note about a cat',
+		});
+		const web = makeWeb(app);
+		const before = app.vault.getFiles().length;
+
+		const dog = app.vault.getFiles().find((f) => f.path === 'dog.md')!;
+		const results = await web.search('animal', dog as unknown as TFile);
+
+		// No #search note was created.
+		expect(app.vault.getFiles().length).toBe(before);
+		const paths = results.map((r) => r.file.path);
+		// The excluded subject is dropped; the other note is surfaced.
+		expect(paths).not.toContain('dog.md');
+		expect(paths).toContain('cat.md');
+	});
+
 	it('appends exactly one FOUND edge when a result is opened twice', async () => {
 		const app = new FakeApp({ 'cat.md': 'a note about a cat' });
 		const web = makeWeb(app);

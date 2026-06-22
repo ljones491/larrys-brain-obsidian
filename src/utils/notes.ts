@@ -12,6 +12,19 @@ export function sanitizeFileName(name: string): string {
 		.replace(/^[.\s]+|[.\s]+$/g, '');
 }
 
+/**
+ * Ensure a folder exists at `path`, creating it (and any missing parents) if
+ * not. A no-op when the folder is already there. Pass a folder path before
+ * creating a note inside it, since `vault.create` won't make parent folders.
+ */
+export async function ensureFolder(app: App, path: string): Promise<void> {
+	const normalized = normalizePath(path);
+	if (app.vault.getAbstractFileByPath(normalized)) {
+		return;
+	}
+	await app.vault.createFolder(normalized);
+}
+
 /** How many suffixed names to try before giving up on a unique path. */
 const MAX_CREATE_ATTEMPTS = 1000;
 
