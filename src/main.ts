@@ -14,7 +14,13 @@ import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
 import { CreateObjectModal } from './object/create-object-modal';
 import { ShuffleModal } from './object/shuffle-modal';
-import { createObject, listObjectKinds, writeSetBase } from './object/object';
+import { PromoteModal } from './object/promote-modal';
+import {
+	createObject,
+	listObjectKinds,
+	promoteToObject,
+	writeSetBase,
+} from './object/object';
 import type { ObjectKindOption } from './object/object';
 import { recognizeObjectKind } from './object/object-note';
 import { RelateModal, RelateChoice } from './relate/relate-modal';
@@ -115,6 +121,23 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openShuffle(),
 		});
 
+		// Promote reshapes the note currently on screen, so it's only available
+		// when one is open; checkCallback hides it otherwise.
+		this.addCommand({
+			id: 'promote',
+			name: 'Promote to object',
+			checkCallback: (checking) => {
+				const subject = this.app.workspace.getActiveFile();
+				if (!subject) {
+					return false;
+				}
+				if (!checking) {
+					this.openPromote(subject);
+				}
+				return true;
+			},
+		});
+
 		// Relate acts on the note currently on screen, so it's only available
 		// when one is open; checkCallback hides it otherwise.
 		this.addCommand({
@@ -180,6 +203,28 @@ export default class LarrysBrainPlugin extends Plugin {
 		new ShuffleModal(this.app, kinds, (file) => {
 			// Open the picked object in a new tab so the shuffle modal stays put.
 			void this.app.workspace.getLeaf('tab').openFile(file);
+		}).open();
+	}
+
+	/**
+	 * Promote the note on screen into an OBJECT instance of a chosen kind. Picks
+	 * the target kind, then rewrites the note in place — its body kept verbatim,
+	 * its configured memory tag (`thought`) swapped for the kind's instance tag,
+	 * and the kind's properties seeded from the note's existing frontmatter.
+	 */
+	private openPromote(subject: TFile): void {
+		const kinds = listObjectKinds(this.app);
+		if (kinds.length === 0) {
+			new Notice('Define an object kind first.');
+			return;
+		}
+		new PromoteModal(this.app, subject.basename, kinds, (kind) => {
+			promoteToObject(this.app, subject, kind, {
+				dropTag: this.settings.tag,
+			}).catch((err: unknown) => {
+				console.error('Promote: failed to promote note', err);
+				new Notice('Promote: failed to promote note.');
+			});
 		}).open();
 	}
 

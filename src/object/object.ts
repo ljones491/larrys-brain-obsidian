@@ -6,6 +6,7 @@ import {
 } from './object-instance';
 import { ObjectKindDef, recognizeObjectKind } from './object-note';
 import { buildBaseFile, syncBaseColumns } from './object-base';
+import { buildPromotedContents, PromotionOptions, splitFrontmatter } from './promote';
 import {
 	createUniqueNote,
 	ensureFolder,
@@ -134,6 +135,30 @@ export async function createObject(app: App, input: NewObject): Promise<TFile> {
 	const file = await createUniqueNote(app, baseName, contents);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
+}
+
+/**
+ * Promote an existing note into an OBJECT instance of `kind`, in place. Reads the
+ * note, splits off its body, and rewrites it via {@link buildPromotedContents} —
+ * keeping the body verbatim, swapping its memory tag (`options.dropTag`, e.g. the
+ * configured `thought`) for the kind's instance tag, and seeding the kind's
+ * properties from any matching existing frontmatter values.
+ *
+ * The thin `App`-dependent counterpart to the pure transform: it only reads and
+ * writes, so the reshaping logic stays testable without a vault. The note is
+ * already the one on screen, so it stays open; only its contents change.
+ */
+export async function promoteToObject(
+	app: App,
+	file: TFile,
+	kind: ObjectKindOption,
+	options: PromotionOptions = {},
+): Promise<void> {
+	const raw = await app.vault.read(file);
+	const { body } = splitFrontmatter(raw);
+	const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+	const contents = buildPromotedContents({ frontmatter, body }, kind.def, options);
+	await app.vault.modify(file, contents);
 }
 
 /**
