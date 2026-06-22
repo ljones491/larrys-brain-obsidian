@@ -67,9 +67,10 @@ describe('listObjects', () => {
 
 describe('promoteToObject', () => {
 	/**
-	 * A fake app over a single note, exposing the read/modify slice
-	 * {@link promoteToObject} touches plus the metadata cache. Returns the app
-	 * and a getter for the note's current contents.
+	 * A fake app over a single note, exposing the read/modify/rename slice
+	 * {@link promoteToObject} touches plus the metadata cache. `renameFile` mutates
+	 * the file's path/basename like Obsidian does. Returns the app, the file, and a
+	 * getter for its current contents.
 	 */
 	function fakeAppWithNote(
 		path: string,
@@ -80,13 +81,24 @@ describe('promoteToObject', () => {
 		const file = {
 			path,
 			basename: path.replace(/\.md$/, '').split('/').pop() ?? path,
+			parent: { path: '/' },
 		} as unknown as TFile;
 		const app = {
 			vault: {
+				getFiles: () => [file],
 				read: (f: TFile) => Promise.resolve(f === file ? contents : ''),
 				modify: (f: TFile, data: string) => {
 					if (f === file) {
 						contents = data;
+					}
+					return Promise.resolve();
+				},
+			},
+			fileManager: {
+				renameFile: (f: TFile, newPath: string) => {
+					if (f === file) {
+						file.path = newPath;
+						file.basename = newPath.replace(/\.md$/, '').split('/').pop() ?? newPath;
 					}
 					return Promise.resolve();
 				},
@@ -131,6 +143,16 @@ describe('promoteToObject', () => {
 		expect(result).toContain('status:\n');
 		expect(result).toContain('date: 2026-06-01 0900');
 		expect(result).toContain('source: user');
+	});
+
+	it('strips the title suffix from the filename on promote', async () => {
+		const raw = '---\ntags:\n  - thought\n---\nA loose thought.';
+		const { app, file } = fakeAppWithNote('Dune - hmm.md', raw, { tags: ['thought'] });
+
+		await promoteToObject(app, file, bookKind, { dropTag: 'thought', titleSuffix: 'hmm' });
+
+		expect(file.path).toBe('Dune.md');
+		expect(file.basename).toBe('Dune');
 	});
 });
 

@@ -12,6 +12,7 @@ import {
 	ensureFolder,
 	makeFileStamp,
 	sanitizeFileName,
+	stripTitleSuffix,
 } from '../utils/notes';
 
 export type { ObjectKindDef };
@@ -137,28 +138,69 @@ export async function createObject(app: App, input: NewObject): Promise<TFile> {
 	return file;
 }
 
+/** Options for {@link promoteToObject}: the transform's options plus the rename. */
+export interface PromoteToObjectOptions extends PromotionOptions {
+	/**
+	 * The Larry Write title suffix (e.g. `hmm`) to strip from the note's filename
+	 * while promoting, so a promoted `Topic - hmm` becomes just `Topic`. Left as-is
+	 * when blank or not present on the name.
+	 */
+	titleSuffix?: string;
+}
+
 /**
  * Promote an existing note into an OBJECT instance of `kind`, in place. Reads the
  * note, splits off its body, and rewrites it via {@link buildPromotedContents} —
  * keeping the body verbatim, swapping its memory tag (`options.dropTag`, e.g. the
  * configured `thought`) for the kind's instance tag, and seeding the kind's
- * properties from any matching existing frontmatter values.
+ * properties from any matching existing frontmatter values. Then strips the Larry
+ * Write title suffix from the filename (`options.titleSuffix`), since a promoted
+ * note is no longer a loose thought.
  *
- * The thin `App`-dependent counterpart to the pure transform: it only reads and
- * writes, so the reshaping logic stays testable without a vault. The note is
- * already the one on screen, so it stays open; only its contents change.
+ * The thin `App`-dependent counterpart to the pure transform: the reshaping logic
+ * stays testable without a vault. The note is already the one on screen, so it
+ * stays open; only its contents and name change.
  */
 export async function promoteToObject(
 	app: App,
 	file: TFile,
 	kind: ObjectKindOption,
-	options: PromotionOptions = {},
+	options: PromoteToObjectOptions = {},
 ): Promise<void> {
 	const raw = await app.vault.read(file);
 	const { body } = splitFrontmatter(raw);
 	const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
 	const contents = buildPromotedContents({ frontmatter, body }, kind.def, options);
 	await app.vault.modify(file, contents);
+	await renameStrippingSuffix(app, file, options.titleSuffix);
+}
+
+/**
+ * Rename `file` to drop its Larry Write title suffix, leaving links intact
+ * (`fileManager.renameFile` rewrites backlinks). A no-op when there's no suffix
+ * to strip; on a name collision it bumps with a counter, like note creation.
+ */
+async function renameStrippingSuffix(
+	app: App,
+	file: TFile,
+	suffix: string | undefined,
+): Promise<void> {
+	if (!suffix) {
+		return;
+	}
+	const stripped = stripTitleSuffix(file.basename, suffix);
+	if (stripped === file.basename || stripped.length === 0) {
+		return;
+	}
+	const dir = file.parent && file.parent.path !== '/' ? `${file.parent.path}/` : '';
+	const taken = new Set(app.vault.getFiles().map((f) => f.path.toLowerCase()));
+	for (let n = 1; n <= 1000; n++) {
+		const candidate = normalizePath(`${dir}${n === 1 ? stripped : `${stripped} ${n}`}.md`);
+		if (!taken.has(candidate.toLowerCase())) {
+			await app.fileManager.renameFile(file, candidate);
+			return;
+		}
+	}
 }
 
 /**

@@ -63,6 +63,21 @@ export async function createUniqueNote(
 	throw new Error(`Could not find a free name for "${baseName}".`);
 }
 
+/**
+ * Strip a trailing ` - <suffix>` from a note basename — the inverse of the
+ * `Topic - <suffix>` form Larry Write gives dump notes (see `generateTitle`).
+ * Returns the basename unchanged when the suffix is blank or absent, so the
+ * topic is all that's left once a thought is promoted. Comparison is exact
+ * (a counter-bumped name like `Topic - hmm 2` is left alone).
+ */
+export function stripTitleSuffix(baseName: string, suffix: string): string {
+	const tail = ` - ${suffix.trim()}`;
+	if (suffix.trim().length === 0 || !baseName.endsWith(tail)) {
+		return baseName;
+	}
+	return baseName.slice(0, -tail.length);
+}
+
 /** The date a note was written, e.g. `2026-06-18`. */
 export function makeDateStamp(): string {
 	const now = new Date();

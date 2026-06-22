@@ -221,6 +221,7 @@ export default class LarrysBrainPlugin extends Plugin {
 		new PromoteModal(this.app, subject.basename, kinds, (kind) => {
 			promoteToObject(this.app, subject, kind, {
 				dropTag: this.settings.tag,
+				titleSuffix: this.settings.titleSuffix,
 			}).catch((err: unknown) => {
 				console.error('Promote: failed to promote note', err);
 				new Notice('Promote: failed to promote note.');
