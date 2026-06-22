@@ -14,7 +14,8 @@ import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
 import { CreateObjectModal } from './object/create-object-modal';
 import { ShuffleModal } from './object/shuffle-modal';
-import { createObject, listObjectKinds } from './object/object';
+import { createObject, listObjectKinds, writeSetBase } from './object/object';
+import { recognizeObjectKind } from './object/object-note';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -55,6 +56,23 @@ export default class LarrysBrainPlugin extends Plugin {
 			this.app.vault.on('rename', (f, oldPath) => {
 				void this.index.onDelete(oldPath);
 				if (f instanceof TFile) void this.index.onModify(f);
+			}),
+		);
+
+		// Keep each kind's set view in sync with its definition: when a kind note's
+		// frontmatter changes (a property added, removed, or reordered), rewrite
+		// the column list of its `.base`, leaving the user's filters and sorting
+		// alone. `changed` fires after the frontmatter is parsed, so the cache is
+		// current; non-kind notes are rejected cheaply by the tag check.
+		this.registerEvent(
+			this.app.metadataCache.on('changed', (file, _data, cache) => {
+				const def = recognizeObjectKind(cache.frontmatter);
+				if (!def || def.objectTag.length === 0) {
+					return;
+				}
+				writeSetBase(this.app, file.basename, def).catch((err: unknown) => {
+					console.error('Object kind: failed to sync set view', err);
+				});
 			}),
 		);
 

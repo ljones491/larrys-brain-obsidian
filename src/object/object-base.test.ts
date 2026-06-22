@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBaseFile } from './object-base';
+import { buildBaseFile, syncBaseColumns } from './object-base';
 
 describe('buildBaseFile', () => {
 	it('filters on the kind tag and lists the title plus a column per property', () => {
@@ -32,5 +32,69 @@ describe('buildBaseFile', () => {
 	it('quotes a view name with YAML-special characters', () => {
 		const out = buildBaseFile('a: b', { objectTag: 'object/a-b', properties: [] });
 		expect(out).toContain('name: "a: b"');
+	});
+});
+
+describe('syncBaseColumns', () => {
+	// A base whose columns are out of date but which carries user tweaks
+	// (a custom view name and a sort block) the sync must preserve.
+	const base = [
+		'filters:',
+		'  and:',
+		`    - 'file.hasTag("object/book")'`,
+		'views:',
+		'  - type: table',
+		'    name: "My books"',
+		'    sort:',
+		'      - property: note.author',
+		'        direction: ASC',
+		'    order:',
+		'      - file.name',
+		'      - note.title',
+		'',
+	].join('\n');
+
+	it('rewrites the column list to match the kind, in order', () => {
+		const out = syncBaseColumns(base, {
+			objectTag: 'object/book',
+			properties: ['author', 'status'],
+		});
+		expect(out).toContain('    order:\n      - file.name\n      - note.author\n      - note.status');
+		// The stale column is gone.
+		expect(out).not.toContain('- note.title');
+	});
+
+	it('leaves filters, the view name, and sorting untouched', () => {
+		const out = syncBaseColumns(base, {
+			objectTag: 'object/book',
+			properties: ['author'],
+		});
+		expect(out).toContain(`- 'file.hasTag("object/book")'`);
+		expect(out).toContain('name: "My books"');
+		expect(out).toContain('    sort:\n      - property: note.author\n        direction: ASC');
+	});
+
+	it('fills an empty order list', () => {
+		const empty = ['views:', '  - type: table', '    order: []', ''].join('\n');
+		const out = syncBaseColumns(empty, {
+			objectTag: 'object/book',
+			properties: ['author'],
+		});
+		expect(out).toContain('    order:\n      - file.name\n      - note.author');
+	});
+
+	it('uses bracket form for a property name with a space', () => {
+		const out = syncBaseColumns(base, {
+			objectTag: 'object/book',
+			properties: ['page count'],
+		});
+		expect(out).toContain('- note["page count"]');
+	});
+
+	it('returns the contents unchanged when there is no order block', () => {
+		const noOrder = ['views:', '  - type: table', '    name: "x"', ''].join('\n');
+		expect(syncBaseColumns(noOrder, { objectTag: 'object/book', properties: ['a'] })).toBe(
+			noOrder,
+		);
 	});
 });

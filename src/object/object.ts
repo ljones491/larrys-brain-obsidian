@@ -5,7 +5,7 @@ import {
 	recognizeObjectInstance,
 } from './object-instance';
 import { ObjectKindDef, recognizeObjectKind } from './object-note';
-import { buildBaseFile } from './object-base';
+import { buildBaseFile, syncBaseColumns } from './object-base';
 import {
 	createUniqueNote,
 	ensureFolder,
@@ -137,14 +137,15 @@ export async function createObject(app: App, input: NewObject): Promise<TFile> {
 }
 
 /**
- * Maintain a kind's Bases table: ensure a `<name>.base` file exists in
- * {@link SETS_FOLDER}, filtered to the kind's instance tag with a column per
- * property. Written silently when a kind is defined, so the set view is a
- * guaranteed byproduct of having a kind, discoverable in the `sets/` folder.
+ * Maintain a kind's Bases table at `<name>.base` in {@link SETS_FOLDER}: a view
+ * filtered to the kind's instance tag with a column per property. Called both
+ * when a kind is defined and whenever its definition note changes, so the set
+ * view is a guaranteed byproduct of having a kind and tracks the kind's schema.
  *
- * Create-if-missing on purpose: once the view exists the user may have tweaked
- * its columns or sorting, and a Bases view is meant to stick around, so this
- * leaves an existing file untouched rather than clobbering those edits. Needs
+ * If the file is missing it's created from scratch. If it already exists, only
+ * the column list is brought back in line with the kind's properties (via
+ * {@link syncBaseColumns}); the user's filters, sorting, and any other tweaks
+ * are left untouched — the kind owns its columns, the user owns the rest. Needs
  * no runtime enumeration — Bases queries the set live.
  */
 export async function writeSetBase(
@@ -155,8 +156,15 @@ export async function writeSetBase(
 	await ensureFolder(app, SETS_FOLDER);
 	const baseName = sanitizeFileName(name) || (def.objectTag.split('/').pop() ?? 'set');
 	const path = normalizePath(`${SETS_FOLDER}/${baseName}.base`);
-	if (app.vault.getAbstractFileByPath(path) instanceof TFile) {
+	const existing = app.vault.getAbstractFileByPath(path);
+	if (!(existing instanceof TFile)) {
+		await app.vault.create(path, buildBaseFile(name, def));
 		return;
 	}
-	await app.vault.create(path, buildBaseFile(name, def));
+	const contents = await app.vault.read(existing);
+	const synced = syncBaseColumns(contents, def);
+	// Skip a no-op write so unrelated edits to a kind note don't churn the base.
+	if (synced !== contents) {
+		await app.vault.modify(existing, synced);
+	}
 }

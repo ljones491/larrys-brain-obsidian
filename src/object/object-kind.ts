@@ -47,8 +47,11 @@ export async function createObjectKind(
 		`${META_FOLDER}/${baseName}`,
 		buildObjectKindContents(def),
 	);
-	// Maintain the kind's set view as a byproduct of defining it.
-	await writeSetBase(app, input.name, def);
+	// Maintain the kind's set view as a byproduct of defining it. Key it off the
+	// created note's basename (not the raw input) so the set view and the
+	// later modify-time resync always agree on the file name, even if a name
+	// collision forced a numeric suffix on the note.
+	await writeSetBase(app, file.basename, def);
 	await app.workspace.getLeaf(false).openFile(file);
 	return file;
 }
