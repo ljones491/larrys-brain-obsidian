@@ -62,6 +62,22 @@ describe('appendEdge', () => {
 		expect(contents.get('a.md')).toBe('body\nLINKS: [[Other]]\n');
 	});
 
+	it('leaves a blank line before the edge when asked', async () => {
+		const { app, file, contents } = fakeApp({ 'a.md': 'body text' });
+		await appendEdge(app, file('a.md'), 'RELATES_TO', 'Other', {
+			blankLineBefore: true,
+		});
+		expect(contents.get('a.md')).toBe('body text\n\nRELATES_TO: [[Other]]\n');
+	});
+
+	it('does not pile up blank lines when the note already ends in one', async () => {
+		const { app, file, contents } = fakeApp({ 'a.md': 'body\n\n' });
+		await appendEdge(app, file('a.md'), 'RELATES_TO', 'Other', {
+			blankLineBefore: true,
+		});
+		expect(contents.get('a.md')).toBe('body\n\nRELATES_TO: [[Other]]\n');
+	});
+
 	it('is idempotent for an identical edge', async () => {
 		const { app, file, contents } = fakeApp({ 'a.md': 'body\n' });
 		await appendEdge(app, file('a.md'), 'FOUND', 'Other');

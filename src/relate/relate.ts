@@ -23,7 +23,9 @@ export async function relateToExisting(
 	edgeType: string,
 	target: TFile,
 ): Promise<void> {
-	await appendEdge(app, subject, normalizeEdgeType(edgeType), target.basename);
+	await appendEdge(app, subject, normalizeEdgeType(edgeType), target.basename, {
+		blankLineBefore: true,
+	});
 }
 
 /**
@@ -38,7 +40,9 @@ export async function relateToNewThought(
 	meta: DumpNoteMeta,
 ): Promise<TFile> {
 	const target = await createDumpNote(app, text, meta);
-	await appendEdge(app, subject, normalizeEdgeType(edgeType), target.basename);
+	await appendEdge(app, subject, normalizeEdgeType(edgeType), target.basename, {
+		blankLineBefore: true,
+	});
 	return target;
 }
 
@@ -53,6 +57,8 @@ export async function relateToNewObject(
 	object: NewObject,
 ): Promise<TFile> {
 	const target = await createObject(app, object);
-	await appendEdge(app, subject, normalizeEdgeType(edgeType), target.basename);
+	await appendEdge(app, subject, normalizeEdgeType(edgeType), target.basename, {
+		blankLineBefore: true,
+	});
 	return target;
 }

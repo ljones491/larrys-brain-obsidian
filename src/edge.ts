@@ -43,6 +43,16 @@ export function buildEdgeLine(type: string, targetBasename: string): string {
 	return `${type}: [[${targetBasename}]]`;
 }
 
+/** Options controlling how an appended edge is spaced from the note body. */
+export interface AppendEdgeOptions {
+	/**
+	 * Leave a blank line between the preceding content and the edge. Relate uses
+	 * this so a user-named edge stands clear of the note's prose; Remember's
+	 * `FOUND` edges don't, so a search note's links stay compact.
+	 */
+	blankLineBefore?: boolean;
+}
+
 /**
  * Append a typed edge from `note` to `target` (by basename). Idempotent: an
  * identical edge line already present is left untouched, so re-running a relate
@@ -55,6 +65,7 @@ export async function appendEdge(
 	note: TFile,
 	type: string,
 	targetBasename: string,
+	options: AppendEdgeOptions = {},
 ): Promise<void> {
 	if (type.length === 0) {
 		throw new Error('Cannot write an edge with an empty type.');
@@ -64,6 +75,13 @@ export async function appendEdge(
 	if (data.includes(line)) {
 		return;
 	}
-	const separator = data.length > 0 && !data.endsWith('\n') ? '\n' : '';
+	let separator = '';
+	if (data.length > 0 && !data.endsWith('\n')) {
+		separator += '\n';
+	}
+	// A blank line in front, unless the note already ends in one.
+	if (options.blankLineBefore && data.length > 0 && !data.endsWith('\n\n')) {
+		separator += '\n';
+	}
 	await app.vault.modify(note, `${data}${separator}${line}\n`);
 }

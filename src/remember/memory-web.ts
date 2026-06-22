@@ -50,6 +50,18 @@ export class MemoryWeb {
 	}
 
 	/**
+	 * Run a search without recording anything — the read-only counterpart to
+	 * {@link remember}. Relate uses this to pick an existing note by relevance
+	 * (body and title), not just title: the link is coming *from* an existing
+	 * note, so there's no Remember to log. Pass `exclude` to drop a note from
+	 * the results (e.g. the relate subject, which shouldn't link to itself).
+	 */
+	async search(query: string, exclude?: TFile): Promise<SearchResult[]> {
+		await this.index.ready();
+		return runSearch(this.app, this.index, query, exclude);
+	}
+
+	/**
 	 * Record that the user opened `found` from `session` by appending a
 	 * `FOUND: [[Note Title]]` edge to the session's `#search` note. Idempotent:
 	 * an already-present link for the same note is left untouched, so re-opening

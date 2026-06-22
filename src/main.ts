@@ -18,7 +18,7 @@ import { createObject, listObjectKinds, writeSetBase } from './object/object';
 import type { ObjectKindOption } from './object/object';
 import { recognizeObjectKind } from './object/object-note';
 import { RelateModal, RelateChoice } from './relate/relate-modal';
-import { RelateExistingModal } from './relate/relate-existing-modal';
+import { RelateSearchModal } from './relate/relate-search-modal';
 import {
 	relateToExisting,
 	relateToNewObject,
@@ -267,12 +267,20 @@ export default class LarrysBrainPlugin extends Plugin {
 				}).open();
 				break;
 			case 'existing':
-				new RelateExistingModal(this.app, subject, (file) => {
-					relateToExisting(this.app, subject, choice.edgeType, file)
-						// Open the linked note in a new tab so the subject stays put.
-						.then(() => this.app.workspace.getLeaf('tab').openFile(file))
-						.catch(fail);
-				}).open();
+				// Search by relevance (body + title) instead of title-only fuzzy.
+				// The link comes from an existing note, so nothing is logged — this
+				// is a read-only search. The subject is excluded so it can't link
+				// to itself; meta notes are excluded by the index.
+				new RelateSearchModal(
+					this.app,
+					(query) => this.memoryWeb.search(query, subject),
+					(file) => {
+						relateToExisting(this.app, subject, choice.edgeType, file)
+							// Open the linked note in a new tab so the subject stays put.
+							.then(() => this.app.workspace.getLeaf('tab').openFile(file))
+							.catch(fail);
+					},
+				).open();
 				break;
 		}
 	}

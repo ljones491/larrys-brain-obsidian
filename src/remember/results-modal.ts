@@ -91,7 +91,11 @@ export class ResultsModal extends Modal {
  * `<mark>` so the user sees which words triggered the result. Matching is
  * case-insensitive; the original snippet casing is preserved.
  */
-function renderHighlighted(el: HTMLElement, snippet: string, terms: string[]): void {
+export function renderHighlighted(
+	el: HTMLElement,
+	snippet: string,
+	terms: string[],
+): void {
 	const active = terms.filter((t) => t.length > 0);
 	if (active.length === 0) {
 		el.setText(snippet);
