@@ -57,6 +57,10 @@ Larry write notes about things. Larry group things into sets of things. Larry sl
 
 Larry see note. Note remind Larry of something else. Larry link.
 
+### Promote
+
+Larry have thought. Thought become object. Entropy decreases.
+
 ### What Else?
 
 `undefined` type beat.
