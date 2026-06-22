@@ -99,8 +99,10 @@ export function recognizeObjectInstance(
  * Render a string as a YAML scalar, quoting only when the raw value could be
  * misread (contains a colon, `#`, quote, or leading/trailing space). Keeps the
  * common case unquoted to match the plain look of the other note schemas.
+ * Exported so promotion (which rewrites an existing note into this same shape)
+ * shares one definition of how a property value is emitted.
  */
-function yamlScalar(value: string): string {
+export function yamlScalar(value: string): string {
 	const needsQuote = /[:#"']/.test(value) || value !== value.trim();
 	if (!needsQuote) {
 		return value;

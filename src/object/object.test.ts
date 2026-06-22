@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { App, TFile } from 'obsidian';
-import { listObjects, ObjectKindOption, pickRandom } from './object';
+import { listObjects, ObjectKindOption, pickRandom, promoteToObject } from './object';
 import { OBJECT_KIND_TAG } from './object-note';
 
 /** A vault file with the frontmatter its metadata cache will report. */
@@ -62,6 +62,97 @@ describe('listObjects', () => {
 	it('returns an empty set when no instances exist', () => {
 		const app = fakeApp({ 'singing.md': { frontmatter: { tags: ['object/skill'] } } });
 		expect(listObjects(app, bookKind)).toEqual([]);
+	});
+});
+
+describe('promoteToObject', () => {
+	/**
+	 * A fake app over a single note, exposing the read/modify/rename slice
+	 * {@link promoteToObject} touches plus the metadata cache. `renameFile` mutates
+	 * the file's path/basename like Obsidian does. Returns the app, the file, and a
+	 * getter for its current contents.
+	 */
+	function fakeAppWithNote(
+		path: string,
+		raw: string,
+		frontmatter?: Record<string, unknown>,
+	): { app: App; file: TFile; current: () => string } {
+		let contents = raw;
+		const file = {
+			path,
+			basename: path.replace(/\.md$/, '').split('/').pop() ?? path,
+			parent: { path: '/' },
+		} as unknown as TFile;
+		const app = {
+			vault: {
+				getFiles: () => [file],
+				read: (f: TFile) => Promise.resolve(f === file ? contents : ''),
+				modify: (f: TFile, data: string) => {
+					if (f === file) {
+						contents = data;
+					}
+					return Promise.resolve();
+				},
+			},
+			fileManager: {
+				renameFile: (f: TFile, newPath: string) => {
+					if (f === file) {
+						file.path = newPath;
+						file.basename = newPath.replace(/\.md$/, '').split('/').pop() ?? newPath;
+					}
+					return Promise.resolve();
+				},
+			},
+			metadataCache: {
+				getFileCache: (f: TFile) => ({
+					frontmatter: f === file ? frontmatter : undefined,
+				}),
+			},
+		} as unknown as App;
+		return { app, file, current: () => contents };
+	}
+
+	it('rewrites the note in place: body kept, tag swapped, properties seeded', async () => {
+		const raw = [
+			'---',
+			'date: 2026-06-01 0900',
+			'tags:',
+			'  - thought',
+			'source: user',
+			'---',
+			'',
+			'Dune is a great book about sandworms.',
+		].join('\n');
+		const { app, file, current } = fakeAppWithNote('Dune.md', raw, {
+			date: '2026-06-01 0900',
+			tags: ['thought'],
+			author: 'Frank Herbert',
+			source: 'user',
+		});
+
+		await promoteToObject(app, file, bookKind, { dropTag: 'thought' });
+
+		const result = current();
+		// Body survives verbatim, the memory tag is swapped for the instance tag,
+		// declared properties show (author seeded from frontmatter, status blank),
+		// and the original date/source are preserved.
+		expect(result.endsWith('Dune is a great book about sandworms.')).toBe(true);
+		expect(result).toContain('  - object/book');
+		expect(result).not.toContain('  - thought');
+		expect(result).toContain('author: Frank Herbert');
+		expect(result).toContain('status:\n');
+		expect(result).toContain('date: 2026-06-01 0900');
+		expect(result).toContain('source: user');
+	});
+
+	it('strips the title suffix from the filename on promote', async () => {
+		const raw = '---\ntags:\n  - thought\n---\nA loose thought.';
+		const { app, file } = fakeAppWithNote('Dune - hmm.md', raw, { tags: ['thought'] });
+
+		await promoteToObject(app, file, bookKind, { dropTag: 'thought', titleSuffix: 'hmm' });
+
+		expect(file.path).toBe('Dune.md');
+		expect(file.basename).toBe('Dune');
 	});
 });
 
