@@ -34,6 +34,17 @@ export function isMetaTag(tag: string): boolean {
 }
 
 /**
+ * Whether a vault path lives inside {@link META_FOLDER} — the folder itself or
+ * anything under it. A location-based companion to {@link isMetaTag}: it never
+ * depends on a note's parsed frontmatter, so a freshly created meta note is
+ * recognized the instant its create event arrives, before the metadata cache
+ * has caught up.
+ */
+export function isInMetaFolder(path: string): boolean {
+	return path === META_FOLDER || path.startsWith(`${META_FOLDER}/`);
+}
+
+/**
  * Turn a free-text name into a valid Obsidian tag: strip a leading `#`, lower
  * case it, and collapse whitespace runs into single hyphens (so "skill area"
  * becomes `skill-area`). Tags can't contain spaces, so a kind named with them
