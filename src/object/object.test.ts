@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { App, TFile } from 'obsidian';
-import { listObjects, ObjectKindOption, pickRandom, promoteToObject } from './object';
+import type { App } from 'obsidian';
+import { TFile } from 'obsidian';
+import {
+	listObjects,
+	ObjectKindOption,
+	openSetBase,
+	pickRandom,
+	promoteToObject,
+	setBasePath,
+} from './object';
 import { OBJECT_KIND_TAG } from './object-note';
 
 /** A vault file with the frontmatter its metadata cache will report. */
@@ -153,6 +161,78 @@ describe('promoteToObject', () => {
 
 		expect(file.path).toBe('Dune.md');
 		expect(file.basename).toBe('Dune');
+	});
+});
+
+describe('setBasePath', () => {
+	it('derives the .base path under the sets folder from the kind name', () => {
+		expect(setBasePath('book', bookKind.def)).toBe('sets/book.base');
+	});
+
+	it('falls back to the instance tag leaf when the name is unusable', () => {
+		expect(setBasePath('  ', bookKind.def)).toBe('sets/book.base');
+	});
+});
+
+describe('openSetBase', () => {
+	/**
+	 * A fake app over an in-memory vault exposing the slice {@link openSetBase}
+	 * (and {@link writeSetBase} under it) touches: folder/file lookup, create,
+	 * read/modify, and a single workspace leaf recording the file it opened.
+	 */
+	function fakeVaultApp(): {
+		app: App;
+		paths: () => string[];
+		opened: () => string | null;
+	} {
+		const files = new Map<string, TFile>();
+		const folders = new Set<string>();
+		const contents = new Map<string, string>();
+		let openedPath: string | null = null;
+		const make = (path: string): TFile =>
+			Object.assign(new TFile(), {
+				path,
+				basename: path.replace(/\.[^.]+$/, '').split('/').pop() ?? path,
+			});
+		const app = {
+			vault: {
+				getAbstractFileByPath: (path: string) =>
+					files.get(path) ?? (folders.has(path) ? ({ path } as unknown) : null),
+				createFolder: (path: string) => {
+					folders.add(path);
+					return Promise.resolve();
+				},
+				create: (path: string, data: string) => {
+					const file = make(path);
+					files.set(path, file);
+					contents.set(path, data);
+					return Promise.resolve(file);
+				},
+				read: (file: TFile) => Promise.resolve(contents.get(file.path) ?? ''),
+				modify: (file: TFile, data: string) => {
+					contents.set(file.path, data);
+					return Promise.resolve();
+				},
+			},
+			workspace: {
+				getLeaf: () => ({
+					openFile: (file: TFile) => {
+						openedPath = file.path;
+						return Promise.resolve();
+					},
+				}),
+			},
+		} as unknown as App;
+		return { app, paths: () => [...files.keys()], opened: () => openedPath };
+	}
+
+	it('creates the base when missing and opens it in the main view', async () => {
+		const { app, paths, opened } = fakeVaultApp();
+
+		await openSetBase(app, 'book', bookKind.def);
+
+		expect(paths()).toContain('sets/book.base');
+		expect(opened()).toBe('sets/book.base');
 	});
 });
 

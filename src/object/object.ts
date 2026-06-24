@@ -221,8 +221,7 @@ export async function writeSetBase(
 	def: ObjectKindDef,
 ): Promise<void> {
 	await ensureFolder(app, SETS_FOLDER);
-	const baseName = sanitizeFileName(name) || (def.objectTag.split('/').pop() ?? 'set');
-	const path = normalizePath(`${SETS_FOLDER}/${baseName}.base`);
+	const path = setBasePath(name, def);
 	const existing = app.vault.getAbstractFileByPath(path);
 	if (!(existing instanceof TFile)) {
 		await app.vault.create(path, buildBaseFile(name, def));
@@ -233,5 +232,33 @@ export async function writeSetBase(
 	// Skip a no-op write so unrelated edits to a kind note don't churn the base.
 	if (synced !== contents) {
 		await app.vault.modify(existing, synced);
+	}
+}
+
+/**
+ * The vault path of a kind's `.base` set view, e.g. `sets/book.base`. The single
+ * place the set view's filename is derived, so the writer and any opener agree.
+ */
+export function setBasePath(name: string, def: ObjectKindDef): string {
+	const baseName = sanitizeFileName(name) || (def.objectTag.split('/').pop() ?? 'set');
+	return normalizePath(`${SETS_FOLDER}/${baseName}.base`);
+}
+
+/**
+ * Open a kind's set view (`<name>.base`) in the main view. Ensures the file
+ * exists first via {@link writeSetBase} — both to create it for kinds defined
+ * before set views existed (which have none) and to keep its columns current —
+ * then opens it in the active leaf. The action the dockable set-view interface
+ * fires for each kind, factored out so the open path stays UI-free and testable.
+ */
+export async function openSetBase(
+	app: App,
+	name: string,
+	def: ObjectKindDef,
+): Promise<void> {
+	await writeSetBase(app, name, def);
+	const file = app.vault.getAbstractFileByPath(setBasePath(name, def));
+	if (file instanceof TFile) {
+		await app.workspace.getLeaf(false).openFile(file);
 	}
 }
