@@ -53,13 +53,23 @@ Memory web.
 
 Larry write notes about things. Larry group things into sets of things. Larry sleep well at night knowing sets exist.
 
+#### Object Sets Panel
+
+Command: `Larry's Brain: Open Object Sets`.
+- Open panel to see list of object sets
+- Click one to see list of objects
+- Right click to set which view opens when clicked
+
+#### Promote
+
+Command: `Larry's Brain: Promote to Object`.
+
+Larry have thought. Thought become object. Entropy down, stocks up.
+
 ### Relate
 
 Larry see note. Note remind Larry of something else. Larry link.
 
-### Promote
-
-Larry have thought. Thought become object. Entropy decreases.
 
 ### What Else?
 

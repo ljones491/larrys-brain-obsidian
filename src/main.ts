@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile } from 'obsidian';
+import { Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	LarrysBrainSettings,
@@ -31,6 +31,7 @@ import {
 	relateToNewThought,
 } from './relate/relate';
 import { normalizeEdgeType } from './edge';
+import { SetView, SET_VIEW_TYPE } from './object/set-view';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -90,6 +91,19 @@ export default class LarrysBrainPlugin extends Plugin {
 				});
 			}),
 		);
+
+		// Dockable panel listing each kind's set, with a button to open its base
+		// in the main view. Registered as a view, surfaced via a ribbon icon and a
+		// command that reveals it in the right sidebar.
+		this.registerView(SET_VIEW_TYPE, (leaf) => new SetView(leaf, this));
+		this.addRibbonIcon('box', 'Open object sets', () => {
+			void this.activateSetView();
+		});
+		this.addCommand({
+			id: 'open-object-sets',
+			name: 'Open object sets',
+			callback: () => void this.activateSetView(),
+		});
 
 		this.addCommand({
 			id: 'larry-write',
@@ -157,6 +171,22 @@ export default class LarrysBrainPlugin extends Plugin {
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
+	}
+
+	/**
+	 * Reveal the dockable set-view panel in the right sidebar, reusing an existing
+	 * leaf if one is already open so repeated activations don't stack panels.
+	 */
+	private async activateSetView(): Promise<void> {
+		const { workspace } = this.app;
+		let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(SET_VIEW_TYPE)[0] ?? null;
+		if (!leaf) {
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: SET_VIEW_TYPE, active: true });
+		}
+		if (leaf) {
+			await workspace.revealLeaf(leaf);
+		}
 	}
 
 	private openLarryWrite(): void {

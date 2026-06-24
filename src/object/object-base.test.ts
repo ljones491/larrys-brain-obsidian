@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBaseFile, syncBaseColumns } from './object-base';
+import { buildBaseFile, listBaseViews, syncBaseColumns } from './object-base';
 
 describe('buildBaseFile', () => {
 	it('filters on the kind tag and lists the title plus a column per property', () => {
@@ -96,5 +96,50 @@ describe('syncBaseColumns', () => {
 		expect(syncBaseColumns(noOrder, { objectTag: 'object/book', properties: ['a'] })).toBe(
 			noOrder,
 		);
+	});
+});
+
+describe('listBaseViews', () => {
+	it('lists each view name in file order, unwrapping quotes', () => {
+		const base = [
+			'views:',
+			'  - type: table',
+			'    name: "My books"',
+			'    order:',
+			'      - file.name',
+			'  - type: cards',
+			'    name: Cards',
+			'',
+		].join('\n');
+		expect(listBaseViews(base)).toEqual(['My books', 'Cards']);
+	});
+
+	it('reads a name inline with the dash', () => {
+		const base = ['views:', '  - name: Gallery', '    type: cards', ''].join('\n');
+		expect(listBaseViews(base)).toEqual(['Gallery']);
+	});
+
+	it('ignores order items and other nested dashes', () => {
+		const base = [
+			'views:',
+			'  - type: table',
+			'    name: Table',
+			'    sort:',
+			'      - property: note.author',
+			'        direction: ASC',
+			'    order:',
+			'      - file.name',
+			'',
+		].join('\n');
+		expect(listBaseViews(base)).toEqual(['Table']);
+	});
+
+	it('returns an empty list when there is no views block', () => {
+		expect(listBaseViews('filters:\n  and: []\n')).toEqual([]);
+	});
+
+	it('unwraps single-quoted names', () => {
+		const base = ["views:", "  - type: table", "    name: 'a: b'", ''].join('\n');
+		expect(listBaseViews(base)).toEqual(['a: b']);
 	});
 });

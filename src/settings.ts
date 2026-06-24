@@ -13,6 +13,14 @@ export interface LarrysBrainSettings {
 	 * itself in as edges are used.
 	 */
 	recentEdgeTypes: string[];
+	/**
+	 * Preferred Bases view to open per set, keyed by the `.base` file path. A base
+	 * opened directly always shows its first view, so this lets the object-sets
+	 * panel open a kind's set to a specific view (e.g. a cards view) the user
+	 * chose via right-click. Unset (or a stale key after a rename) falls back to
+	 * the first view.
+	 */
+	preferredSetView: Record<string, string>;
 }
 
 export const DEFAULT_SETTINGS: LarrysBrainSettings = {
@@ -20,6 +28,7 @@ export const DEFAULT_SETTINGS: LarrysBrainSettings = {
 	titleSuffix: 'hmm',
 	// Seeded with the edges GOAL.md names so the first relate has suggestions.
 	recentEdgeTypes: ['RELATES_TO', 'IDEA_FOR'],
+	preferredSetView: {},
 };
 
 export class LarrysBrainSettingTab extends PluginSettingTab {
