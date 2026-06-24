@@ -250,15 +250,27 @@ export function setBasePath(name: string, def: ObjectKindDef): string {
  * before set views existed (which have none) and to keep its columns current —
  * then opens it in the active leaf. The action the dockable set-view interface
  * fires for each kind, factored out so the open path stays UI-free and testable.
+ *
+ * When `view` is given, opens to that named Bases view via the `#View` subpath
+ * (a base opened plainly always shows its first view); omit it for the default
+ * first view.
  */
 export async function openSetBase(
 	app: App,
 	name: string,
 	def: ObjectKindDef,
+	view?: string,
 ): Promise<void> {
 	await writeSetBase(app, name, def);
-	const file = app.vault.getAbstractFileByPath(setBasePath(name, def));
-	if (file instanceof TFile) {
+	const path = setBasePath(name, def);
+	const file = app.vault.getAbstractFileByPath(path);
+	if (!(file instanceof TFile)) {
+		return;
+	}
+	if (view) {
+		// `[[file.base#View]]` selects a view; openLinkText applies that subpath.
+		await app.workspace.openLinkText(`${path}#${view}`, '', false);
+	} else {
 		await app.workspace.getLeaf(false).openFile(file);
 	}
 }

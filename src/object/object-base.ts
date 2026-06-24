@@ -68,6 +68,92 @@ export function syncBaseColumns(contents: string, def: ObjectKindDef): string {
 	return [...lines.slice(0, start), ...rebuilt, ...lines.slice(end)].join('\n');
 }
 
+/**
+ * List the view names declared in a `.base` file, in file order. Used to offer
+ * the user a preferred view to open a kind's set to (a base opened directly
+ * always shows its first view, so a user with a cards view as well needs a way
+ * to pick it).
+ *
+ * Reads the text rather than parsing YAML, like {@link syncBaseColumns}, so it
+ * tolerates whatever Obsidian writes when the user adds a view. It walks the
+ * `views:` block (the lines indented under it) and takes the first `name:` of
+ * each view list item, whether inline with the dash (`- name: Cards`) or on its
+ * own line. Quoted names are unwrapped. Returns `[]` when there's no `views:`.
+ */
+export function listBaseViews(contents: string): string[] {
+	const lines = contents.split('\n');
+	const viewsIdx = lines.findIndex((line) => /^\s*views:\s*$/.test(line));
+	if (viewsIdx === -1) {
+		return [];
+	}
+	const viewsIndent = leadingSpaces(lines[viewsIdx] ?? '');
+
+	const names: string[] = [];
+	let dashIndent: number | null = null;
+	let item: string[] | null = null;
+	const flush = () => {
+		if (item) {
+			const name = findViewName(item);
+			if (name !== null) {
+				names.push(name);
+			}
+		}
+		item = null;
+	};
+
+	for (let i = viewsIdx + 1; i < lines.length; i++) {
+		const line = lines[i] ?? '';
+		if (line.trim() === '') {
+			item?.push(line);
+			continue;
+		}
+		const indent = leadingSpaces(line);
+		// A line at or left of `views:` ends the block.
+		if (indent <= viewsIndent) {
+			break;
+		}
+		const isDash = /^\s*-\s/.test(line) || /^\s*-\s*$/.test(line);
+		// A dash at the view-item indent starts a new view; deeper dashes (e.g.
+		// `order:` items) belong to the current view.
+		if (isDash && (dashIndent === null || indent === dashIndent)) {
+			flush();
+			dashIndent = indent;
+			item = [line];
+		} else if (item) {
+			item.push(line);
+		}
+	}
+	flush();
+	return names;
+}
+
+/** First `name:` value within a view's lines, dash-inline or own-line. */
+function findViewName(itemLines: string[]): string | null {
+	for (const raw of itemLines) {
+		const stripped = raw.replace(/^\s*-\s*/, '').trim();
+		const match = /^name:\s*(.+)$/.exec(stripped);
+		if (match?.[1]) {
+			return unquoteScalar(match[1].trim());
+		}
+	}
+	return null;
+}
+
+/** Unwrap a YAML scalar's quotes (double or single); pass plain values through. */
+function unquoteScalar(value: string): string {
+	if (value.startsWith('"')) {
+		try {
+			return JSON.parse(value) as string;
+		} catch {
+			return value;
+		}
+	}
+	if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
+		return value.slice(1, -1).replace(/''/g, "'");
+	}
+	return value;
+}
+
 /** Number of leading space characters on a line, for indentation comparisons. */
 function leadingSpaces(line: string): number {
 	return /^ */.exec(line)?.[0].length ?? 0;

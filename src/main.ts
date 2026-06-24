@@ -95,7 +95,7 @@ export default class LarrysBrainPlugin extends Plugin {
 		// Dockable panel listing each kind's set, with a button to open its base
 		// in the main view. Registered as a view, surfaced via a ribbon icon and a
 		// command that reveals it in the right sidebar.
-		this.registerView(SET_VIEW_TYPE, (leaf) => new SetView(leaf));
+		this.registerView(SET_VIEW_TYPE, (leaf) => new SetView(leaf, this));
 		this.addRibbonIcon('box', 'Open object sets', () => {
 			void this.activateSetView();
 		});

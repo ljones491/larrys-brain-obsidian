@@ -1,5 +1,8 @@
-import { ItemView, Notice, WorkspaceLeaf } from 'obsidian';
-import { listObjectKinds, openSetBase } from './object';
+import { ItemView, Menu, Notice, TFile, WorkspaceLeaf } from 'obsidian';
+import { listObjectKinds, openSetBase, setBasePath, writeSetBase } from './object';
+import { listBaseViews } from './object-base';
+import type { ObjectKindOption } from './object';
+import type LarrysBrainPlugin from '../main';
 
 /** View type id for the dockable set-view panel. Stable; don't rename. */
 export const SET_VIEW_TYPE = 'larrys-brain-set-view';
@@ -15,7 +18,10 @@ export const SET_VIEW_TYPE = 'larrys-brain-set-view';
  * a newly defined (or deleted/renamed) kind shows up without a manual refresh.
  */
 export class SetView extends ItemView {
-	constructor(leaf: WorkspaceLeaf) {
+	constructor(
+		leaf: WorkspaceLeaf,
+		private plugin: LarrysBrainPlugin,
+	) {
 		super(leaf);
 	}
 
@@ -63,13 +69,64 @@ export class SetView extends ItemView {
 				text: kind.name,
 				cls: 'larrys-brain-set-view-item',
 			});
-			button.addEventListener('click', () => {
-				openSetBase(this.app, kind.name, kind.def).catch((err: unknown) => {
-					console.error('Object sets: failed to open set view', err);
-					new Notice('Object sets: failed to open set view.');
-				});
+			// Left-click opens the set to its preferred view (first by default).
+			button.addEventListener('click', () => this.openKind(kind));
+			// Right-click picks which view to open this kind's set to.
+			button.addEventListener('contextmenu', (evt) => {
+				evt.preventDefault();
+				void this.showViewMenu(evt, kind);
 			});
 		}
+	}
+
+	/** Open a kind's set to its stored preferred view (or the first view). */
+	private openKind(kind: ObjectKindOption): void {
+		const view = this.plugin.settings.preferredSetView[setBasePath(kind.name, kind.def)];
+		openSetBase(this.app, kind.name, kind.def, view).catch((err: unknown) => {
+			console.error('Object sets: failed to open set view', err);
+			new Notice('Object sets: failed to open set view.');
+		});
+	}
+
+	/**
+	 * Show a context menu of the kind's base views, the preferred one checked.
+	 * Choosing a view stores it as this set's preference and opens to it. The
+	 * base is written/refreshed first so its current view list is read back.
+	 */
+	private async showViewMenu(evt: MouseEvent, kind: ObjectKindOption): Promise<void> {
+		const path = setBasePath(kind.name, kind.def);
+		await writeSetBase(this.app, kind.name, kind.def);
+		const file = this.app.vault.getAbstractFileByPath(path);
+		const views =
+			file instanceof TFile ? listBaseViews(await this.app.vault.read(file)) : [];
+
+		const menu = new Menu();
+		if (views.length === 0) {
+			menu.addItem((item) => item.setTitle('No views found').setDisabled(true));
+		} else {
+			// No stored preference means the base opens to its first view.
+			const effective = this.plugin.settings.preferredSetView[path] ?? views[0];
+			for (const view of views) {
+				menu.addItem((item) =>
+					item
+						.setTitle(view)
+						.setChecked(view === effective)
+						.onClick(() => {
+							this.plugin.settings.preferredSetView[path] = view;
+							this.plugin.saveSettings().catch((err: unknown) => {
+								console.error('Object sets: failed to save preferred view', err);
+							});
+							openSetBase(this.app, kind.name, kind.def, view).catch(
+								(err: unknown) => {
+									console.error('Object sets: failed to open set view', err);
+									new Notice('Object sets: failed to open set view.');
+								},
+							);
+						}),
+				);
+			}
+		}
+		menu.showAtMouseEvent(evt);
 	}
 
 	protected async onClose(): Promise<void> {
