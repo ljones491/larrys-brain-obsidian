@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { toEdges } from './graph-source';
+import type { App, TFile } from 'obsidian';
+import { listPoints, listTodaysPoints, toEdges } from './graph-source';
 import { buildGraph, tallyFor } from './tally';
 import { buildAreaNoteContents, buildPointNoteContents } from './note';
 import { buildEdgeLine } from '../edge';
-import { UNDER_EDGE } from './constants';
+import { POINT_TAG, UNDER_EDGE } from './constants';
 
 describe('toEdges', () => {
 	it('reads ON edges from point bodies, keyed by point path', () => {
@@ -52,5 +53,93 @@ describe('toEdges', () => {
 		const graph = buildGraph(under, on);
 		expect(tallyFor(graph, 'chores')).toBe(2);
 		expect(tallyFor(graph, 'dishes')).toBe(1);
+	});
+});
+
+/** A stub note: its frontmatter, first link target, and mtime, keyed together. */
+interface StubNote {
+	path: string;
+	date?: string;
+	tag?: string;
+	link?: string;
+	mtime: number;
+}
+
+/** Minimal App: getMarkdownFiles + a metadata cache built from stub notes. */
+function fakeApp(notes: StubNote[]): App {
+	const files = notes.map(
+		(n) => ({ path: n.path, stat: { mtime: n.mtime } }) as unknown as TFile,
+	);
+	const byPath = new Map(notes.map((n) => [n.path, n]));
+	return {
+		vault: { getMarkdownFiles: () => files },
+		metadataCache: {
+			getFileCache: (f: TFile) => {
+				const n = byPath.get(f.path);
+				if (!n) return undefined;
+				return {
+					frontmatter: n.tag ? { date: n.date, tags: [n.tag] } : undefined,
+					links: n.link ? [{ link: n.link }] : undefined,
+				};
+			},
+		},
+	} as unknown as App;
+}
+
+describe('listPoints', () => {
+	it('returns every point, oldest first, with area and date; skips non-points', () => {
+		const app = fakeApp([
+			{ path: 'p/b.md', date: '2026-07-06', tag: POINT_TAG, link: 'Chores', mtime: 300 },
+			{ path: 'p/a.md', date: '2026-07-05', tag: POINT_TAG, link: 'Dishes', mtime: 100 },
+			{ path: 'Dishes.md', date: '2026-07-06', tag: 'points/area', mtime: 400 },
+		]);
+		expect(listPoints(app)).toEqual([
+			{
+				file: expect.objectContaining({ path: 'p/a.md' }),
+				area: 'Dishes',
+				date: '2026-07-05',
+				when: 100,
+			},
+			{
+				file: expect.objectContaining({ path: 'p/b.md' }),
+				area: 'Chores',
+				date: '2026-07-06',
+				when: 300,
+			},
+		]);
+	});
+
+	it('strips a display alias from the area link', () => {
+		const app = fakeApp([
+			{
+				path: 'p/a.md',
+				date: '2026-07-06',
+				tag: POINT_TAG,
+				link: 'Dishes|the dishes',
+				mtime: 1,
+			},
+		]);
+		expect(listPoints(app)[0]?.area).toBe('Dishes');
+	});
+
+	it('skips a point with no resolvable area link', () => {
+		const app = fakeApp([
+			{ path: 'p/a.md', date: '2026-07-06', tag: POINT_TAG, mtime: 1 },
+		]);
+		expect(listPoints(app)).toEqual([]);
+	});
+});
+
+describe('listTodaysPoints', () => {
+	it('keeps only points stamped today, newest first', () => {
+		const app = fakeApp([
+			{ path: 'p/a.md', date: '2026-07-06', tag: POINT_TAG, link: 'Dishes', mtime: 100 },
+			{ path: 'p/b.md', date: '2026-07-06', tag: POINT_TAG, link: 'Chores', mtime: 300 },
+			{ path: 'p/old.md', date: '2026-07-05', tag: POINT_TAG, link: 'Dishes', mtime: 200 },
+		]);
+		expect(listTodaysPoints(app, '2026-07-06').map((p) => p.file.path)).toEqual([
+			'p/b.md',
+			'p/a.md',
+		]);
 	});
 });

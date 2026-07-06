@@ -98,7 +98,7 @@ CortexView is now the entry point for Create object, Relate, and Promote (no lon
 
 `main.ts` wires `create/modify/delete/rename` → `index.onModify/onDelete`. On load, `restore()` (snapshot) → `reconcile()` (drop deleted, re-read mtime-changed) or `rebuild()` (scan all). Every mutation path awaits `build()` first so an early event can't race the initial load; the build is deferred to `onLayoutReady` and memoized; `onunload` flushes pending writes. The most carefully engineered part of the codebase.
 
-### Points (in progress — spend path shipped)
+### Points (in progress — spend + view panel shipped)
 
 Subsumes the standalone Points CLI (see `GOAL.md`): "spend a point" to log where focus goes, tallied by rolling `ON`-points up an `UNDER` hierarchy of areas. A *system-owned* note kind — **not** an Object/Set — riding `edge.ts` directly.
 
@@ -123,7 +123,23 @@ Ribbon "plus-circle" / command "Spend a point" (main.ts)
 
 `points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) parses `UNDER`/`ON` from note bodies into the tally arrays; `listAreas`/`loadPointGraph` (App) gather notes by tag and read bodies via `cachedRead`. Spend writes no `appendEdge` — the point's `ON` edge is part of the note's initial contents — so the `appendEdge` race doesn't touch this path.
 
-Still to build: the dockable Points panel + colored-square tally, in-note area dashboards, `UNDER` parenting/relate affordances (Journey #3, where `appendEdge` *is* used), and the `appendEdge` → `Vault.process` migration GOAL.md folds into this work.
+Vertical slice — **view focus** (Journey #2, read-only over the same graph):
+
+```
+Ribbon "target" / command "Open points" (main.ts) → activatePoints (right sidebar)
+  → PointsView (dockable, sibling of Cortex)                       [points/points-view.ts]
+      ├─ listPoints(app) → one equal square per point, oldest→newest
+      │     (hue per area, keyed off the legend's rank; click opens the point)
+      ├─ loadAreaTotals(app) → ranked legend: swatch + area + total [points/graph-source.ts]
+      │     (same hue as that area's squares; click opens the area note)
+      └─ listTodaysPoints(app, makeDateStamp()) → today's log       [points/graph-source.ts]
+            (points stamped today, newest first)
+  → re-renders on vault create/delete/rename + metadataCache changed
+```
+
+`listPoints` is the primitive: every point note, oldest first, with its area link and `date` read straight from the metadata cache (no body reads); `listTodaysPoints` is a filtered/reversed view of it. The squares are one-per-point and equal-size — a chronological focus line, colored by area — while `loadAreaTotals` supplies the ranked legend (each area by its derived `tallyFor`) that fixes the per-area hue. The panel is pure read — no writes, no `appendEdge`.
+
+Still to build: in-note area dashboards, `UNDER` parenting/relate affordances (Journey #3, where `appendEdge` *is* used), and the `appendEdge` → `Vault.process` migration GOAL.md folds into that work.
 
 ## Risks
 

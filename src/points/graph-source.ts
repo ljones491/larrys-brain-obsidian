@@ -2,6 +2,7 @@ import type { App, TFile } from 'obsidian';
 import { parseEdgeTargets } from '../edge';
 import {
 	buildGraph,
+	tallyFor,
 	type OnEdge,
 	type PointGraph,
 	type UnderEdge,
@@ -116,4 +117,88 @@ export async function loadPointGraph(app: App): Promise<PointGraph> {
 
 	const { under, on } = toEdges(areaSources, pointSources);
 	return buildGraph(under, on);
+}
+
+/** An area with its live, derived total — the row a ranked panel renders. */
+export interface AreaTotal {
+	file: TFile;
+	/** The note's title, for display and to open the area on click. */
+	name: string;
+	/** Points `ON` this area or anything under it, derived on the spot. */
+	total: number;
+	/** How many areas sit directly `UNDER` this one, for the legend. */
+	childCount: number;
+}
+
+/**
+ * Every area note with its derived total, ranked most-focused first (ties broken
+ * by name so the order is stable). The Points panel renders this as its colored
+ * squares and legend. Totals come from one graph load, so a diamond still counts
+ * a point once and a deleted point simply drops out.
+ */
+export async function loadAreaTotals(app: App): Promise<AreaTotal[]> {
+	const graph = await loadPointGraph(app);
+	const totals = listAreas(app).map(({ file, name }) => {
+		const id = normalizeAreaName(name);
+		return {
+			file,
+			name,
+			total: tallyFor(graph, id),
+			childCount: graph.children.get(id)?.size ?? 0,
+		};
+	});
+	totals.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+	return totals;
+}
+
+/** A single point event: the note, the area it landed on, and when. */
+export interface PointEntry {
+	file: TFile;
+	/** The area's link target (basename), from the point's single `ON` edge. */
+	area: string;
+	/** The `date` frontmatter stamp (`YYYY-MM-DD`), when present as a string. */
+	date: string | undefined;
+	/** Modification time, for chronological ordering and the time of day. */
+	when: number;
+}
+
+/**
+ * Every point note in the vault, oldest first — the chronological spine the
+ * panel draws as a line of squares. Recognizes points by tag and reads the
+ * `date` frontmatter and the `ON` link target straight from the (warm) metadata
+ * cache, so no note bodies are read. A point with no resolvable area is skipped
+ * rather than shown blank.
+ */
+export function listPoints(app: App): PointEntry[] {
+	const points: PointEntry[] = [];
+	for (const file of app.vault.getMarkdownFiles()) {
+		const cache = app.metadataCache.getFileCache(file);
+		if (!isPointFrontmatter(cache?.frontmatter)) {
+			continue;
+		}
+		// A point's only link is its `ON` edge; take its target, minus any alias.
+		const link = cache?.links?.[0]?.link;
+		if (!link) {
+			continue;
+		}
+		const date: unknown = cache?.frontmatter?.['date'];
+		points.push({
+			file,
+			area: link.replace(/\|.*$/, '').trim(),
+			date: typeof date === 'string' ? date : undefined,
+			when: file.stat.mtime,
+		});
+	}
+	points.sort((a, b) => a.when - b.when);
+	return points;
+}
+
+/**
+ * The point notes stamped `today` (a `YYYY-MM-DD` date stamp), newest first —
+ * the panel's "today's log". A filtered, reversed view of {@link listPoints}.
+ */
+export function listTodaysPoints(app: App, today: string): PointEntry[] {
+	return listPoints(app)
+		.filter((p) => p.date === today)
+		.reverse();
 }

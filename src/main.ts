@@ -36,6 +36,7 @@ import { CortexView, CORTEX_VIEW_TYPE } from './object/cortex-view';
 import { PointsBook } from './points/points';
 import { SpendAreaModal } from './points/spend-area-modal';
 import { listAreas } from './points/graph-source';
+import { PointsView, POINTS_VIEW_TYPE } from './points/points-view';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -136,6 +137,18 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openSpendPoint(),
 		});
 
+		// The Points panel: a dockable "where focus went" view, sibling to Cortex.
+		// Read-only over the same link graph the spend path writes into.
+		this.registerView(POINTS_VIEW_TYPE, (leaf) => new PointsView(leaf));
+		this.addRibbonIcon('target', 'Open points', () => {
+			void this.activatePoints();
+		});
+		this.addCommand({
+			id: 'open-points',
+			name: 'Open points',
+			callback: () => void this.activatePoints(),
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -150,6 +163,23 @@ export default class LarrysBrainPlugin extends Plugin {
 		if (!leaf) {
 			leaf = workspace.getRightLeaf(false);
 			await leaf?.setViewState({ type: CORTEX_VIEW_TYPE, active: true });
+		}
+		if (leaf) {
+			await workspace.revealLeaf(leaf);
+		}
+	}
+
+	/**
+	 * Reveal the Points panel in the right sidebar, reusing an existing leaf so
+	 * repeated activations don't stack panels. Mirrors {@link activateCortex}.
+	 */
+	private async activatePoints(): Promise<void> {
+		const { workspace } = this.app;
+		let leaf: WorkspaceLeaf | null =
+			workspace.getLeavesOfType(POINTS_VIEW_TYPE)[0] ?? null;
+		if (!leaf) {
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: POINTS_VIEW_TYPE, active: true });
 		}
 		if (leaf) {
 			await workspace.revealLeaf(leaf);
