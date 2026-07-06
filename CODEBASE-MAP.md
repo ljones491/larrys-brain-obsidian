@@ -129,22 +129,23 @@ PointsView legend row (points/points-view.ts)
          → AreaNameModal → PointsBook.createTopLevelArea(name)  (no edge)
 ```
 
-`points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) parses `UNDER`/`ON` from note bodies into the tally arrays; `listAreas`/`loadPointGraph` (App) gather notes by tag and read bodies via `cachedRead`. Spend writes no `appendEdge` (the point's `ON` edge is baked into initial contents); **`+ sub-area` is the one path that appends an edge** — the low-frequency `UNDER` write, cycle-guarded by `wouldCreateCycle` (a pure `descendants`-based check in `tally.ts`). The `appendEdge` read-modify-write race is left as a tracked follow-up — parenting is one-at-a-time, so it doesn't bite here.
+`points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) assembles the tally arrays — `UNDER` edges parsed from area *bodies*, `ON` edges from a point's already-extracted area link; `listAreas`/`loadPointGraph` (App) gather notes by tag, reading area bodies via `cachedRead` but taking each point's single `ON` target straight from the metadata cache link list (`pointAreaLink`, shared with `listPoints`) — **no per-point body read**, so a render stays cheap as points accumulate. Areas still need body parsing because they can carry links of several types (`UNDER` and, later, relate) that the cache can't tell apart; a point has exactly one link, so no disambiguation is needed. Spend writes no `appendEdge` (the point's `ON` edge is baked into initial contents); **`+ sub-area` is the one path that appends an edge** — the low-frequency `UNDER` write, cycle-guarded by `wouldCreateCycle` (a pure `descendants`-based check in `tally.ts`). The `appendEdge` read-modify-write race is left as a tracked follow-up — parenting is one-at-a-time, so it doesn't bite here.
 
 Vertical slice — **view focus** (read-only over the same graph):
 
 ```
 PointsView.render (one loadPointsPanel(app) → { totals, graph })   [points/graph-source.ts]
   ├─ "New area" button (top)
-  ├─ listPoints(app) → one equal square per point, oldest→newest   (hue per area by rank; click opens the point)
+  ├─ listPoints(app) → one equal square per point, oldest→newest   (hue per *top-level* area; sub-areas inherit their root's color; click opens the point)
   ├─ nested legend: buildAreaForest(graph, rankedIds)              [points/tally.ts, pure + tested]
   │     each row = swatch + area + total, indented by UNDER depth, with +point / +sub-area buttons
+  │     (only top-level rows carry a colored swatch; sub-area rows reserve the space but stay uncolored)
   │     (click name opens the area note; shows *all* areas, incl. zero-total, so a new area is spendable)
   └─ listTodaysPoints(app, makeDateStamp()) → today's log          (points stamped today, newest first)
   → re-renders on vault create/delete/rename + metadataCache changed
 ```
 
-`buildAreaForest` (pure, in `tally.ts`) nests areas under their `UNDER` parents, siblings ordered by the ranked total list, and is diamond/cycle-safe (per-path visited set). `loadPointsPanel` does one graph load per render, feeding both the totals (hues + display) and the forest. The panel's *reads* are pure; its *writes* go through the shell methods above.
+`buildAreaForest` (pure, in `tally.ts`) nests areas under their `UNDER` parents, siblings ordered by the ranked total list, and is diamond/cycle-safe (per-path visited set). `loadPointsPanel` does one graph load per render, feeding both the totals (display) and the forest. Coloring is driven off that forest: a hue is assigned per **root** only (`hueFor` by root rank), then walked down so every sub-area inherits its top-level ancestor's hue — the big picture rolls each point up into its root's color, and the legend swatch is drawn only on root rows. This keeps the palette to the count of top-level areas so trends stay distinguishable. The panel's *reads* are pure; its *writes* go through the shell methods above.
 
 Still to build (deferred): in-note area dashboards, a "relate" cross-link affordance on area/point notes (Journey #3), re-parenting an *existing* area (only new/typed sub-areas today), and the `appendEdge` → `Vault.process` migration.
 

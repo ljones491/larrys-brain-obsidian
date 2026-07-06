@@ -1,7 +1,7 @@
 import { ItemView, Notice, setIcon, TFile, WorkspaceLeaf } from 'obsidian';
 import { makeDateStamp } from '../utils/notes';
 import { normalizeAreaName } from './constants';
-import { buildAreaForest, type ForestNode, type PointGraph } from './tally';
+import { buildAreaForest, type ForestNode } from './tally';
 import {
 	loadPointsPanel,
 	listPoints,
@@ -69,19 +69,30 @@ export class PointsView extends ItemView {
 		const { totals, graph } = await loadPointsPanel(this.app);
 		const spent = totals.filter((a) => a.total > 0);
 
-		// One hue per area, keyed by its matching identity and fixed by the rank, so
-		// every point rectangle and every legend swatch for an area share a color.
-		// Every area gets a hue (not just spent ones) so a zero-total area still has
-		// a stable swatch in the nested legend; the big picture just draws no
-		// rectangle for it.
+		// Arrange the areas into the same forest the legend nests, so we know which
+		// areas are top-level (the forest roots) and which subtree each area sits in.
+		const order = totals.map((a) => normalizeAreaName(a.name));
+		const known = new Set(order);
+		const forest = buildAreaForest(graph, order, known);
+
+		// One hue per *top-level* area only, spread around the wheel by rank, so the
+		// palette stays small and readable however deep the tree grows. Every
+		// sub-area inherits its root's hue, so a point rolls up into its top-level
+		// area's color in the big picture and a whole subtree reads as one color;
+		// the legend draws a swatch only on the root row (see renderLegendRow).
+		const rootIds = new Set(forest.map((node) => node.id));
 		const hueByArea = new Map<string, number>();
-		totals.forEach((area, i) => {
-			hueByArea.set(normalizeAreaName(area.name), hueFor(i, totals.length));
-		});
+		const assignHue = (node: ForestNode, hue: number): void => {
+			hueByArea.set(node.id, hue);
+			for (const child of node.children) {
+				assignHue(child, hue);
+			}
+		};
+		forest.forEach((root, i) => assignHue(root, hueFor(i, forest.length)));
 
 		this.renderNewArea(container);
 		this.renderBigPicture(container, hueByArea, spent.length === 0);
-		this.renderLegend(container, totals, graph, hueByArea);
+		this.renderLegend(container, totals, forest, hueByArea, rootIds);
 		this.renderToday(container);
 	}
 
@@ -138,8 +149,9 @@ export class PointsView extends ItemView {
 	private renderLegend(
 		container: HTMLElement,
 		totals: AreaTotal[],
-		graph: PointGraph,
+		forest: ForestNode[],
 		hueByArea: Map<string, number>,
+		rootIds: Set<string>,
 	): void {
 		const section = container.createDiv({ cls: 'larrys-brain-points-section' });
 		this.sectionHeading(section, 'Legend');
@@ -153,28 +165,28 @@ export class PointsView extends ItemView {
 		}
 
 		// Index areas by matching identity so a forest node (keyed by id) finds its
-		// display row. The forest nests areas under their parents; siblings follow
-		// the ranked order of `totals`.
+		// display row. The forest (built once in render) nests areas under their
+		// parents; siblings follow the ranked order of `totals`.
 		const byId = new Map<string, AreaTotal>();
 		for (const area of totals) {
 			byId.set(normalizeAreaName(area.name), area);
 		}
-		const order = totals.map((a) => normalizeAreaName(a.name));
-		const known = new Set(order);
-		const forest = buildAreaForest(graph, order, known);
 
 		const legend = section.createDiv({ cls: 'larrys-brain-points-legend' });
-		const renderNode = (node: ForestNode, depth: number): void => {
+		const renderNode = (subtree: HTMLElement, node: ForestNode, depth: number): void => {
 			const area = byId.get(node.id);
 			if (area) {
-				this.renderLegendRow(legend, area, depth, hueByArea);
+				this.renderLegendRow(subtree, area, depth, hueByArea, rootIds.has(node.id));
 			}
 			for (const child of node.children) {
-				renderNode(child, depth + 1);
+				renderNode(subtree, child, depth + 1);
 			}
 		};
+		// Each root and its descendants render into their own subtree container, so
+		// the grid flows whole subtrees as units and never splits one across columns.
 		for (const root of forest) {
-			renderNode(root, 0);
+			const subtree = legend.createDiv({ cls: 'larrys-brain-points-legend-subtree' });
+			renderNode(subtree, root, 0);
 		}
 	}
 
@@ -184,15 +196,25 @@ export class PointsView extends ItemView {
 		area: AreaTotal,
 		depth: number,
 		hueByArea: Map<string, number>,
+		isRoot: boolean,
 	): void {
 		const row = legend.createDiv({ cls: 'larrys-brain-points-legend-row' });
 		row.style.setProperty('--points-depth', String(depth));
 
-		const swatch = row.createDiv({ cls: 'larrys-brain-points-swatch' });
-		swatch.style.setProperty(
-			'--points-hue',
-			String(hueByArea.get(normalizeAreaName(area.name)) ?? 0),
-		);
+		// Only top-level areas carry a colored swatch, keeping the palette small so
+		// trends stay distinguishable. A sub-area renders an empty placeholder of the
+		// same width so its name still lines up under its siblings' names.
+		const swatch = row.createDiv({
+			cls: isRoot
+				? 'larrys-brain-points-swatch'
+				: 'larrys-brain-points-swatch larrys-brain-points-swatch--empty',
+		});
+		if (isRoot) {
+			swatch.style.setProperty(
+				'--points-hue',
+				String(hueByArea.get(normalizeAreaName(area.name)) ?? 0),
+			);
+		}
 
 		const name = row.createSpan({
 			text: area.name,
@@ -272,7 +294,11 @@ export class PointsView extends ItemView {
 	}
 }
 
-/** A distinct hue per rank, spread around the wheel so neighbors read apart. */
+/**
+ * A distinct hue per top-level area, spread around the wheel so neighbors read
+ * apart. Keyed by root rank (not per-area), so the palette stays small however
+ * deep the `UNDER` tree grows.
+ */
 function hueFor(index: number, count: number): number {
 	return Math.round((360 * index) / Math.max(count, 1));
 }

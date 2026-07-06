@@ -1,4 +1,4 @@
-import type { App, TFile } from 'obsidian';
+import type { App, CachedMetadata, TFile } from 'obsidian';
 import { parseEdgeTargets } from '../edge';
 import {
 	buildGraph,
@@ -7,18 +7,24 @@ import {
 	type PointGraph,
 	type UnderEdge,
 } from './tally';
-import { normalizeAreaName, ON_EDGE, UNDER_EDGE } from './constants';
+import { normalizeAreaName, UNDER_EDGE } from './constants';
 import { isAreaFrontmatter, isPointFrontmatter } from './note';
 
 /**
  * The seam that turns the vault into the plain edge arrays {@link buildGraph}
- * expects — the piece the pure tally foundation deliberately left out. Edges are
- * written in note *bodies* (`TYPE: [[Target]]`), not frontmatter, so the link
- * cache can't give them back with their type; the bodies are parsed here.
+ * expects — the piece the pure tally foundation deliberately left out.
  *
- * The parsing ({@link toEdges}) is pure and testable with plain note text; the
- * vault reads that gather the notes and their bodies live in the `App` shell
- * below.
+ * The two note kinds are read asymmetrically, because their edges differ in kind
+ * and in count. An **area** carries `UNDER` edges in its *body* (`TYPE: [[Target]]`)
+ * and may carry links of other types too, so the link cache can't give them back
+ * with their type — its body is read and parsed. There are few areas, so that's
+ * cheap. A **point** carries exactly one link, its `ON` edge, so its single
+ * cached link *is* that edge with no ambiguity; points are read straight from the
+ * metadata cache with no body I/O — the difference that keeps a render over
+ * hundreds of point notes off the disk.
+ *
+ * The edge assembly ({@link toEdges}) is pure and testable with plain values; the
+ * vault reads that gather the sources live in the `App` shell below.
  */
 
 /** An area note reduced to what edge-building needs: its title and its body. */
@@ -27,10 +33,14 @@ export interface AreaSource {
 	body: string;
 }
 
-/** A point note reduced to a stable id (its path) and its body. */
+/**
+ * A point note reduced to a stable id (its path) and the raw target of its `ON`
+ * edge (the area link, as read from the metadata cache — normalized in
+ * {@link toEdges}, not here).
+ */
 export interface PointSource {
 	id: string;
-	body: string;
+	area: string;
 }
 
 /**
@@ -38,7 +48,9 @@ export interface PointSource {
  * graph is built from. Area ids are the matching identity of the note title (so
  * "Dishes" and "dishes" are one area); an `UNDER`/`ON` target is normalized the
  * same way so an edge lands on the area it names regardless of casing. A point's
- * id is its own path — the dedupe key that makes a diamond count once.
+ * id is its own path — the dedupe key that makes a diamond count once. Area
+ * `UNDER` edges are parsed from the note body; a point's `ON` target arrives
+ * already extracted from the link cache.
  */
 export function toEdges(
 	areas: AreaSource[],
@@ -52,12 +64,10 @@ export function toEdges(
 		}
 	}
 
-	const on: OnEdge[] = [];
-	for (const point of points) {
-		for (const area of parseEdgeTargets(point.body, ON_EDGE)) {
-			on.push({ point: point.id, area: normalizeAreaName(area) });
-		}
-	}
+	const on: OnEdge[] = points.map((point) => ({
+		point: point.id,
+		area: normalizeAreaName(point.area),
+	}));
 
 	return { under, on };
 }
@@ -87,31 +97,35 @@ export function listAreas(app: App): AreaEntry[] {
 }
 
 /**
- * Assemble the live {@link PointGraph} from the vault: read every area and point
- * note's body, parse their edges, and index them. The graph is derived on the
- * spot and thrown away — a tally is never stored — so a deleted point simply
- * isn't read and every affected total corrects itself.
+ * Assemble the live {@link PointGraph} from the vault. Area notes are read for
+ * their `UNDER` edges (body-parsed with `cachedRead`, view-oriented, no write
+ * intent); point notes contribute their `ON` edge straight from the metadata
+ * cache link list — no body read per point, the difference that keeps this cheap
+ * as points accumulate. The graph is derived on the spot and thrown away — a
+ * tally is never stored — so a deleted point simply isn't read and every affected
+ * total corrects itself.
  *
- * Reads bodies with `cachedRead` (view-oriented, no write intent). Points and
- * areas are recognized by tag, so their folder layout can move without touching
- * this.
+ * Points and areas are recognized by tag, so their folder layout can move without
+ * touching this. A point whose `ON` link can't be read is skipped rather than
+ * counted on a phantom area, matching {@link listPoints}.
  */
 export async function loadPointGraph(app: App): Promise<PointGraph> {
 	const areaSources: AreaSource[] = [];
 	const pointSources: PointSource[] = [];
 
 	for (const file of app.vault.getMarkdownFiles()) {
-		const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+		const cache = app.metadataCache.getFileCache(file);
+		const frontmatter = cache?.frontmatter;
 		if (isAreaFrontmatter(frontmatter)) {
 			areaSources.push({
 				basename: file.basename,
 				body: await app.vault.cachedRead(file),
 			});
 		} else if (isPointFrontmatter(frontmatter)) {
-			pointSources.push({
-				id: file.path,
-				body: await app.vault.cachedRead(file),
-			});
+			const area = pointAreaLink(cache);
+			if (area) {
+				pointSources.push({ id: file.path, area });
+			}
 		}
 	}
 
@@ -166,6 +180,18 @@ export interface PointEntry {
 }
 
 /**
+ * A point's area target read from the metadata cache: its single link is its `ON`
+ * edge, so the first link *is* the area, minus any `|display` alias. Returns
+ * `undefined` when the point has no link yet (e.g. the cache hasn't caught up to a
+ * just-created note). Shared by {@link loadPointGraph} and {@link listPoints} so
+ * both resolve a point's area the same way, with no body read.
+ */
+function pointAreaLink(cache: CachedMetadata | null): string | undefined {
+	const link = cache?.links?.[0]?.link;
+	return link ? link.replace(/\|.*$/, '').trim() : undefined;
+}
+
+/**
  * Every point note in the vault, oldest first — the chronological spine the
  * panel draws as a line of squares. Recognizes points by tag and reads the
  * `date` frontmatter and the `ON` link target straight from the (warm) metadata
@@ -179,15 +205,14 @@ export function listPoints(app: App): PointEntry[] {
 		if (!isPointFrontmatter(cache?.frontmatter)) {
 			continue;
 		}
-		// A point's only link is its `ON` edge; take its target, minus any alias.
-		const link = cache?.links?.[0]?.link;
-		if (!link) {
+		const area = pointAreaLink(cache);
+		if (!area) {
 			continue;
 		}
 		const date: unknown = cache?.frontmatter?.['date'];
 		points.push({
 			file,
-			area: link.replace(/\|.*$/, '').trim(),
+			area,
 			date: typeof date === 'string' ? date : undefined,
 			when: file.stat.mtime,
 		});

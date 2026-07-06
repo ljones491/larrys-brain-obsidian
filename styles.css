@@ -338,9 +338,22 @@ If your plugin does not need CSS, delete this file.
 /* Nested legend: swatch, name, total, and the spend / sub-area actions per row.
    Rows indent by their `--points-depth` so `UNDER` parentage reads at a glance. */
 .larrys-brain-points-legend {
+	/* Flow whole subtrees into as many columns as the width allows, each at least
+	   ~15em wide, so a wide main-view panel spreads them horizontally instead of
+	   running one tall column. A narrow sidebar collapses to a single column.
+	   align-items: start keeps each subtree its natural height rather than
+	   stretching short ones to match a tall neighbor in the same row. */
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
+	gap: var(--size-4-2) var(--size-4-2);
+	align-items: start;
+}
+
+/* A root area and its descendants: rows stack flush within the subtree; the
+   subtree itself is one grid item so parentage never splits across columns. */
+.larrys-brain-points-legend-subtree {
 	display: flex;
 	flex-direction: column;
-	/* Rows sit flush; the hover background is enough to separate them. */
 	gap: 0;
 }
 
@@ -370,6 +383,12 @@ If your plugin does not need CSS, delete this file.
 	height: 0.85em;
 	border-radius: var(--radius-s);
 	background-color: oklch(0.68 0.14 var(--points-hue, 0));
+}
+
+/* Sub-area rows reserve the swatch's space but stay uncolored: only top-level
+   areas carry a hue, so the legend's palette stays small and its colors distinct. */
+.larrys-brain-points-swatch--empty {
+	background-color: transparent;
 }
 
 .larrys-brain-points-legend-name {
