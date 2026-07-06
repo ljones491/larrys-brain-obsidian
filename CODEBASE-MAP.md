@@ -79,7 +79,8 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                     strip " - hmm" suffix, rename keeping backlinks)
                           └─ belongs to a Set ◀── Define kind writes sets/<name>.base;
                              metadataCache 'changed' keeps its columns synced
-                          └─ surfaced via CortexView panel / openSetBase
+                          └─ surfaced via CortexView panel (per-kind: openSetBase,
+                             or a shuffle button that opens a random member)
 ```
 
 ### Index freshness (the search invariant)
