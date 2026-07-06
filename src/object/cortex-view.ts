@@ -20,10 +20,12 @@ export const CORTEX_VIEW_TYPE = 'larrys-brain-set-view';
 /**
  * Larry's Brain Cortex — the plugin's control center. A dockable panel (lives in
  * the right sidebar) that will grow into the hub for this plugin's functionality.
- * Today it lists every OBJECT kind, each with a button that opens its set view
+ * A "Current note" section relates the note open in the main view. Below it, the
+ * panel lists every OBJECT kind, each with a button that opens its set view
  * (`<name>.base`) in the main view — the "a button I can click to open the base"
  * idea in .dev/GOAL.md. Saves having to remember the base's folder/filename and
- * reach for the quick switcher. Each kind also gets a shuffle button that opens
+ * reach for the quick switcher. Each kind also gets a create button that opens
+ * the Create object modal preset to that kind, and a shuffle button that opens
  * a random member of its set in the main view, and a section-level button opens
  * the Define object kind modal (available even when no kinds exist yet).
  *
@@ -61,7 +63,7 @@ export class CortexView extends ItemView {
 		this.render();
 	}
 
-	/** Rebuild the panel: a row with an open button for each defined kind. */
+	/** Rebuild the panel from its feature sections. */
 	private render(): void {
 		const container = this.contentEl;
 		container.empty();
@@ -70,6 +72,30 @@ export class CortexView extends ItemView {
 		// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Larry's Brain Cortex" is a proper name
 		container.createEl('h4', { text: "Larry's Brain Cortex" });
 
+		this.renderNoteActions(container);
+		this.renderObjectSets(container);
+	}
+
+	/** Actions on the note currently open in the main view. */
+	private renderNoteActions(container: HTMLElement): void {
+		const section = container.createDiv({ cls: 'larrys-brain-cortex-section' });
+		section.createEl('div', {
+			text: 'Current note',
+			cls: 'larrys-brain-cortex-section-heading',
+		});
+		section.createEl('div', {
+			text: 'Link the note open in the main view to another with a typed edge.',
+			cls: 'larrys-brain-cortex-section-hint',
+		});
+
+		const relate = section.createEl('button', { cls: 'larrys-brain-cortex-define' });
+		setIcon(relate.createSpan({ cls: 'larrys-brain-cortex-define-icon' }), 'link');
+		relate.createSpan({ text: 'Relate note' });
+		relate.addEventListener('click', () => this.plugin.relateActiveNote());
+	}
+
+	/** A row with an open button (plus create/shuffle) for each defined kind. */
+	private renderObjectSets(container: HTMLElement): void {
 		// Each feature area is its own titled section so more can be added later.
 		const section = container.createDiv({ cls: 'larrys-brain-cortex-section' });
 		section.createEl('div', {
@@ -77,7 +103,7 @@ export class CortexView extends ItemView {
 			cls: 'larrys-brain-cortex-section-heading',
 		});
 		section.createEl('div', {
-			text: 'Open a kind’s set view. Right-click to pick which view. Shuffle opens a random member.',
+			text: 'Open a kind’s set view. Right-click to pick which view. Plus creates a member, shuffle opens a random one.',
 			cls: 'larrys-brain-cortex-section-hint',
 		});
 
@@ -103,6 +129,16 @@ export class CortexView extends ItemView {
 					evt.preventDefault();
 					void this.showViewMenu(evt, kind);
 				});
+
+				// A create button opens the Create object modal preset to this kind.
+				const create = row.createEl('button', {
+					cls: 'larrys-brain-cortex-create',
+					attr: { 'aria-label': `Create ${kind.name}` },
+				});
+				setIcon(create, 'plus');
+				create.addEventListener('click', () =>
+					this.plugin.openCreateObject(kind),
+				);
 
 				// A shuffle button opens a random member of this kind's set.
 				const shuffle = row.createEl('button', {

@@ -80,9 +80,13 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                           └─ belongs to a Set ◀── Define kind writes sets/<name>.base;
                              metadataCache 'changed' keeps its columns synced
                           └─ surfaced via CortexView panel (per-kind: openSetBase,
-                             or a shuffle button that opens a random member;
-                             a section button opens the Define kind modal)
+                             a create button that opens the Create object modal
+                             preset to that kind, or a shuffle button that opens
+                             a random member; a section button opens Define kind).
+                             A "Current note" section relates the active note.
 ```
+
+CortexView is now the entry point for Create object and Relate (no longer command-palette commands); Larry write, Remember, and Promote remain commands.
 
 ### Index freshness (the search invariant)
 

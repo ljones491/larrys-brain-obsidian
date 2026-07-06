@@ -9,6 +9,11 @@ import { NewObject, ObjectKindOption } from './object';
  * nothing.
  *
  * Assumes at least one kind exists; the caller checks and warns otherwise.
+ *
+ * Passing a `fixedKind` locks the modal to that one kind: the kind dropdown is
+ * omitted entirely so focus lands straight in the name box. This is how the
+ * Cortex panel's per-kind create button opens it. Without a `fixedKind`, the
+ * dropdown is shown so the kind can be chosen (used by the Relate flow).
  */
 export class CreateObjectModal extends Modal {
 	private kind: ObjectKindOption;
@@ -20,9 +25,10 @@ export class CreateObjectModal extends Modal {
 		app: App,
 		private kinds: ObjectKindOption[],
 		private onSubmit: (object: NewObject) => void,
+		private fixedKind?: ObjectKindOption,
 	) {
 		super(app);
-		const first = kinds[0];
+		const first = fixedKind ?? kinds[0];
 		if (!first) {
 			throw new Error('CreateObjectModal requires at least one kind.');
 		}
@@ -32,22 +38,28 @@ export class CreateObjectModal extends Modal {
 	onOpen(): void {
 		const { contentEl } = this;
 
-		contentEl.createEl('h3', { text: 'Create object' });
-
-		new Setting(contentEl).setName('Kind').addDropdown((dropdown) => {
-			this.kinds.forEach((kind, i) => {
-				dropdown.addOption(String(i), kind.name);
-			});
-			dropdown.setValue('0').onChange((value) => {
-				const kind = this.kinds[Number(value)];
-				if (!kind) {
-					return;
-				}
-				this.kind = kind;
-				this.values = {};
-				this.renderFields();
-			});
+		contentEl.createEl('h3', {
+			text: this.fixedKind ? `Create ${this.fixedKind.name}` : 'Create object',
 		});
+
+		// With a fixed kind there's nothing to pick, so skip the dropdown and let
+		// focus fall straight to the name field.
+		if (!this.fixedKind) {
+			new Setting(contentEl).setName('Kind').addDropdown((dropdown) => {
+				this.kinds.forEach((kind, i) => {
+					dropdown.addOption(String(i), kind.name);
+				});
+				dropdown.setValue('0').onChange((value) => {
+					const kind = this.kinds[Number(value)];
+					if (!kind) {
+						return;
+					}
+					this.kind = kind;
+					this.values = {};
+					this.renderFields();
+				});
+			});
+		}
 
 		// Name and per-property fields live in their own container so changing
 		// the kind can re-render just them, leaving the dropdown in place.

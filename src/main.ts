@@ -118,12 +118,6 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openRemember(),
 		});
 
-		this.addCommand({
-			id: 'create-object',
-			name: 'Create object',
-			callback: () => this.openCreateObject(),
-		});
-
 		// Promote reshapes the note currently on screen, so it's only available
 		// when one is open; checkCallback hides it otherwise.
 		this.addCommand({
@@ -136,23 +130,6 @@ export default class LarrysBrainPlugin extends Plugin {
 				}
 				if (!checking) {
 					this.openPromote(subject);
-				}
-				return true;
-			},
-		});
-
-		// Relate acts on the note currently on screen, so it's only available
-		// when one is open; checkCallback hides it otherwise.
-		this.addCommand({
-			id: 'relate',
-			name: 'Relate note',
-			checkCallback: (checking) => {
-				const subject = this.app.workspace.getActiveFile();
-				if (!subject) {
-					return false;
-				}
-				if (!checking) {
-					this.openRelate(subject);
 				}
 				return true;
 			},
@@ -200,18 +177,23 @@ export default class LarrysBrainPlugin extends Plugin {
 		}).open();
 	}
 
-	private openCreateObject(): void {
-		const kinds = listObjectKinds(this.app);
-		if (kinds.length === 0) {
-			new Notice('Define an object kind first.');
-			return;
-		}
-		new CreateObjectModal(this.app, kinds, (object) => {
-			createObject(this.app, object).catch((err: unknown) => {
-				console.error('Create object: failed to create note', err);
-				new Notice('Create object: failed to create note.');
-			});
-		}).open();
+	/**
+	 * Open the Create object modal for a specific kind. Invoked from the Cortex
+	 * panel's per-kind create button; the kind is fixed so the modal drops its
+	 * kind dropdown and focus lands straight in the name box.
+	 */
+	openCreateObject(kind: ObjectKindOption): void {
+		new CreateObjectModal(
+			this.app,
+			[kind],
+			(object) => {
+				createObject(this.app, object).catch((err: unknown) => {
+					console.error('Create object: failed to create note', err);
+					new Notice('Create object: failed to create note.');
+				});
+			},
+			kind,
+		).open();
 	}
 
 	/**
@@ -268,6 +250,19 @@ export default class LarrysBrainPlugin extends Plugin {
 			// Open the result in a new tab so the search note stays put.
 			void this.app.workspace.getLeaf('tab').openFile(file);
 		}).open();
+	}
+
+	/**
+	 * Relate the currently active note. Invoked from the Cortex panel's Relate
+	 * button; warns if no note is open since Relate needs a subject to act on.
+	 */
+	relateActiveNote(): void {
+		const subject = this.app.workspace.getActiveFile();
+		if (!subject) {
+			new Notice('Open a note to relate it.');
+			return;
+		}
+		this.openRelate(subject);
 	}
 
 	/**
