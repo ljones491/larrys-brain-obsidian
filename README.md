@@ -1,14 +1,17 @@
 # larrys-brain-obsidian
+>
 > You've been warned.
 
 Larry's Brain for Obsidian. A plugin. Make Obsidian like Larry-noggin.
 
 ## Why No README?
-Early. Only for Larry now. 
+
+Early. Only for Larry now.
 
 Slopped for speed. Debt paid later. Debt paid by Larry with multitudinous Larry's Brain. Not like now.
 
 ## Why some README?
+
 Only for Larry, but Larry read not remember.
 
 ## How Not-Larry Brain Like Larry?
@@ -16,13 +19,15 @@ Only for Larry, but Larry read not remember.
 Clone repo. `npm run dev`.
 
 Get files:
+
 - `main.js`
 - `manifest.json`
 - `styles.css`
 
 Put files:
+
 - `.obsidian/plugins/larrys-brain`
-    - Obsidian vault plugins grandchild (folders go hard)
+  - Obsidian vault plugins grandchild (folders go hard)
 
 Community plugins enable. Larrys Brain enable. Maybe command: `Reload app without saving`. Non-Larrys do this way present time.
 
@@ -37,6 +42,7 @@ Want faster? Tell motherboard makehaste in mothertongue.
 Custom command name: `Larry's Brain: Larry write`. `lwr` probably good enough search unless Obsidian-maxxing.
 
 Type in big fun big text box. Capture quick note with
+
 - configurable tag (default `#thought`)
 - configurable title suffix (default `hmm`)
 - date = today, source = "user". important hencewise
@@ -53,9 +59,10 @@ Memory web.
 
 Larry write notes about things. Larry group things into sets of things. Larry sleep well at night knowing sets exist.
 
-#### Object Sets Panel
+#### Larry's Brain Cortex
 
-Command: `Larry's Brain: Open Object Sets`.
+The plugin's control center panel. Command: `Larry's Brain: Open cortex`.
+
 - Open panel to see list of object sets
 - Click one to see list of objects
 - Right click to set which view opens when clicked
@@ -70,8 +77,6 @@ Larry have thought. Thought become object. Entropy down, stocks up.
 
 Larry see note. Note remind Larry of something else. Larry link.
 
-
 ### What Else?
 
 `undefined` type beat.
-

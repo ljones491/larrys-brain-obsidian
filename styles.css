@@ -163,21 +163,72 @@ If your plugin does not need CSS, delete this file.
 	margin-bottom: var(--size-4-3);
 }
 
-/* Dockable panel listing each object kind's set view. */
-.larrys-brain-set-view-empty {
+/* Larry's Brain Cortex: the control-center panel listing each object kind's set view. */
+.larrys-brain-cortex-empty {
 	color: var(--text-faint);
 }
 
-.larrys-brain-set-view-list {
+/* A titled feature area within the panel; separated so more can be stacked. */
+.larrys-brain-cortex-section + .larrys-brain-cortex-section {
+	margin-top: var(--size-4-4);
+}
+
+.larrys-brain-cortex-section-heading {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: var(--size-4-1);
+}
+
+.larrys-brain-cortex-section-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-2);
+}
+
+.larrys-brain-cortex-list {
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-4-1);
 }
 
-/* One kind per row: a full-width, left-aligned button that opens its base. */
-.larrys-brain-set-view-item {
-	width: 100%;
+/* One kind per row: an open-set button plus create/promote/shuffle buttons beside it. */
+.larrys-brain-cortex-row {
+	display: flex;
+	gap: var(--size-4-1);
+	align-items: stretch;
+}
+
+/* The open-set button fills the row; create/promote/shuffle sit at its right. */
+.larrys-brain-cortex-item {
+	flex: 1;
 	justify-content: flex-start;
 	text-align: left;
 	cursor: pointer;
+}
+
+.larrys-brain-cortex-create,
+.larrys-brain-cortex-promote,
+.larrys-brain-cortex-shuffle {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+/* Section-level action: define a new object kind. */
+.larrys-brain-cortex-define {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-4);
+	cursor: pointer;
+}
+
+.larrys-brain-cortex-define-icon {
+	display: flex;
+	align-items: center;
 }

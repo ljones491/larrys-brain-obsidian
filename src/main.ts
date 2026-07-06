@@ -13,8 +13,6 @@ import { SearchIndex } from './remember/search-index';
 import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
 import { CreateObjectModal } from './object/create-object-modal';
-import { ShuffleModal } from './object/shuffle-modal';
-import { PromoteModal } from './object/promote-modal';
 import {
 	createObject,
 	listObjectKinds,
@@ -31,7 +29,7 @@ import {
 	relateToNewThought,
 } from './relate/relate';
 import { normalizeEdgeType } from './edge';
-import { SetView, SET_VIEW_TYPE } from './object/set-view';
+import { CortexView, CORTEX_VIEW_TYPE } from './object/cortex-view';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -92,17 +90,19 @@ export default class LarrysBrainPlugin extends Plugin {
 			}),
 		);
 
-		// Dockable panel listing each kind's set, with a button to open its base
-		// in the main view. Registered as a view, surfaced via a ribbon icon and a
-		// command that reveals it in the right sidebar.
-		this.registerView(SET_VIEW_TYPE, (leaf) => new SetView(leaf, this));
-		this.addRibbonIcon('box', 'Open object sets', () => {
-			void this.activateSetView();
+		// Larry's Brain Cortex: the plugin's control center, a dockable panel that
+		// currently lists each kind's set with a button to open its base in the main
+		// view. Registered as a view, surfaced via a ribbon icon and a command that
+		// reveals it in the right sidebar.
+		this.registerView(CORTEX_VIEW_TYPE, (leaf) => new CortexView(leaf, this));
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Larry's Brain Cortex" is a proper name
+		this.addRibbonIcon('box', "Open Larry's Brain Cortex", () => {
+			void this.activateCortex();
 		});
 		this.addCommand({
 			id: 'open-object-sets',
-			name: 'Open object sets',
-			callback: () => void this.activateSetView(),
+			name: 'Open cortex',
+			callback: () => void this.activateCortex(),
 		});
 
 		this.addCommand({
@@ -117,72 +117,20 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openRemember(),
 		});
 
-		this.addCommand({
-			id: 'define-object-kind',
-			name: 'Define object kind',
-			callback: () => this.openDefineObjectKind(),
-		});
-
-		this.addCommand({
-			id: 'create-object',
-			name: 'Create object',
-			callback: () => this.openCreateObject(),
-		});
-
-		this.addCommand({
-			id: 'shuffle',
-			name: 'Shuffle',
-			callback: () => this.openShuffle(),
-		});
-
-		// Promote reshapes the note currently on screen, so it's only available
-		// when one is open; checkCallback hides it otherwise.
-		this.addCommand({
-			id: 'promote',
-			name: 'Promote to object',
-			checkCallback: (checking) => {
-				const subject = this.app.workspace.getActiveFile();
-				if (!subject) {
-					return false;
-				}
-				if (!checking) {
-					this.openPromote(subject);
-				}
-				return true;
-			},
-		});
-
-		// Relate acts on the note currently on screen, so it's only available
-		// when one is open; checkCallback hides it otherwise.
-		this.addCommand({
-			id: 'relate',
-			name: 'Relate note',
-			checkCallback: (checking) => {
-				const subject = this.app.workspace.getActiveFile();
-				if (!subject) {
-					return false;
-				}
-				if (!checking) {
-					this.openRelate(subject);
-				}
-				return true;
-			},
-		});
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
 
 	/**
-	 * Reveal the dockable set-view panel in the right sidebar, reusing an existing
-	 * leaf if one is already open so repeated activations don't stack panels.
+	 * Reveal the Cortex panel in the right sidebar, reusing an existing leaf if one
+	 * is already open so repeated activations don't stack panels.
 	 */
-	private async activateSetView(): Promise<void> {
+	private async activateCortex(): Promise<void> {
 		const { workspace } = this.app;
-		let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(SET_VIEW_TYPE)[0] ?? null;
+		let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(CORTEX_VIEW_TYPE)[0] ?? null;
 		if (!leaf) {
 			leaf = workspace.getRightLeaf(false);
-			await leaf?.setViewState({ type: SET_VIEW_TYPE, active: true });
+			await leaf?.setViewState({ type: CORTEX_VIEW_TYPE, active: true });
 		}
 		if (leaf) {
 			await workspace.revealLeaf(leaf);
@@ -201,7 +149,8 @@ export default class LarrysBrainPlugin extends Plugin {
 		}).open();
 	}
 
-	private openDefineObjectKind(): void {
+	/** Open the Define object kind modal. Invoked from the Cortex panel button. */
+	openDefineObjectKind(): void {
 		new DefineObjectKindModal(this.app, (kind) => {
 			createObjectKind(this.app, kind).catch((err: unknown) => {
 				console.error('Define object kind: failed to create note', err);
@@ -210,53 +159,45 @@ export default class LarrysBrainPlugin extends Plugin {
 		}).open();
 	}
 
-	private openCreateObject(): void {
-		const kinds = listObjectKinds(this.app);
-		if (kinds.length === 0) {
-			new Notice('Define an object kind first.');
-			return;
-		}
-		new CreateObjectModal(this.app, kinds, (object) => {
-			createObject(this.app, object).catch((err: unknown) => {
-				console.error('Create object: failed to create note', err);
-				new Notice('Create object: failed to create note.');
-			});
-		}).open();
-	}
-
-	private openShuffle(): void {
-		const kinds = listObjectKinds(this.app);
-		if (kinds.length === 0) {
-			new Notice('Define an object kind first.');
-			return;
-		}
-		new ShuffleModal(this.app, kinds, (file) => {
-			// Open the picked object in a new tab so the shuffle modal stays put.
-			void this.app.workspace.getLeaf('tab').openFile(file);
-		}).open();
+	/**
+	 * Open the Create object modal for a specific kind. Invoked from the Cortex
+	 * panel's per-kind create button; the kind is fixed so the modal drops its
+	 * kind dropdown and focus lands straight in the name box.
+	 */
+	openCreateObject(kind: ObjectKindOption): void {
+		new CreateObjectModal(
+			this.app,
+			[kind],
+			(object) => {
+				createObject(this.app, object).catch((err: unknown) => {
+					console.error('Create object: failed to create note', err);
+					new Notice('Create object: failed to create note.');
+				});
+			},
+			kind,
+		).open();
 	}
 
 	/**
-	 * Promote the note on screen into an OBJECT instance of a chosen kind. Picks
-	 * the target kind, then rewrites the note in place — its body kept verbatim,
-	 * its configured memory tag (`thought`) swapped for the kind's instance tag,
-	 * and the kind's properties seeded from the note's existing frontmatter.
+	 * Promote the note on screen into an OBJECT instance of `kind`. Invoked from
+	 * the Cortex panel's per-kind promote button — the kind is chosen by which
+	 * button, so this is one-click: the note is rewritten in place, its body kept
+	 * verbatim, its configured memory tag (`thought`) swapped for the kind's
+	 * instance tag, and the kind's properties seeded from its existing frontmatter.
 	 */
-	private openPromote(subject: TFile): void {
-		const kinds = listObjectKinds(this.app);
-		if (kinds.length === 0) {
-			new Notice('Define an object kind first.');
+	promoteActiveNote(kind: ObjectKindOption): void {
+		const subject = this.app.workspace.getActiveFile();
+		if (!subject) {
+			new Notice('Open a note to promote it.');
 			return;
 		}
-		new PromoteModal(this.app, subject.basename, kinds, (kind) => {
-			promoteToObject(this.app, subject, kind, {
-				dropTag: this.settings.tag,
-				titleSuffix: this.settings.titleSuffix,
-			}).catch((err: unknown) => {
-				console.error('Promote: failed to promote note', err);
-				new Notice('Promote: failed to promote note.');
-			});
-		}).open();
+		promoteToObject(this.app, subject, kind, {
+			dropTag: this.settings.tag,
+			titleSuffix: this.settings.titleSuffix,
+		}).catch((err: unknown) => {
+			console.error('Promote: failed to promote note', err);
+			new Notice('Promote: failed to promote note.');
+		});
 	}
 
 	private openRemember(): void {
@@ -290,6 +231,19 @@ export default class LarrysBrainPlugin extends Plugin {
 			// Open the result in a new tab so the search note stays put.
 			void this.app.workspace.getLeaf('tab').openFile(file);
 		}).open();
+	}
+
+	/**
+	 * Relate the currently active note. Invoked from the Cortex panel's Relate
+	 * button; warns if no note is open since Relate needs a subject to act on.
+	 */
+	relateActiveNote(): void {
+		const subject = this.app.workspace.getActiveFile();
+		if (!subject) {
+			new Notice('Open a note to relate it.');
+			return;
+		}
+		this.openRelate(subject);
 	}
 
 	/**
