@@ -33,11 +33,15 @@ import {
 } from './relate/relate';
 import { normalizeEdgeType, RELATES_TO_EDGE } from './edge';
 import { CortexView, CORTEX_VIEW_TYPE } from './object/cortex-view';
+import { PointsBook } from './points/points';
+import { SpendAreaModal } from './points/spend-area-modal';
+import { listAreas } from './points/graph-source';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
 	private index!: SearchIndex;
 	private memoryWeb!: MemoryWeb;
+	private points!: PointsBook;
 
 	async onload() {
 		await this.loadSettings();
@@ -49,6 +53,7 @@ export default class LarrysBrainPlugin extends Plugin {
 			: null;
 		this.index = new SearchIndex(this.app, snapshotPath);
 		this.memoryWeb = new MemoryWeb(this.app, this.index);
+		this.points = new PointsBook(this.app);
 		// Defer the one full scan until Obsidian's own cache is warm so startup
 		// stays light; afterwards only changed files are re-read.
 		this.app.workspace.onLayoutReady(() => void this.index.build());
@@ -118,6 +123,17 @@ export default class LarrysBrainPlugin extends Plugin {
 			id: 'remember',
 			name: 'Remember',
 			callback: () => this.openRemember(),
+		});
+
+		// Points gets its own front door, a sibling of Cortex — not a Cortex tenant.
+		// The ribbon icon matters on mobile, where there is no command palette.
+		this.addRibbonIcon('plus-circle', 'Spend a point', () => {
+			this.openSpendPoint();
+		});
+		this.addCommand({
+			id: 'spend-a-point',
+			name: 'Spend a point',
+			callback: () => this.openSpendPoint(),
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -248,6 +264,29 @@ export default class LarrysBrainPlugin extends Plugin {
 				.catch((err: unknown) => {
 					console.error('Move to domain: failed to migrate kind', err);
 					new Notice('Move to domain: failed to migrate kind.');
+				});
+		}).open();
+	}
+
+	/**
+	 * The muscle-memory path: open the area picker, then spend a point on the
+	 * chosen (or freshly created) area. Confirms a brand-new area so a typo can't
+	 * silently fork a duplicate, and reports the area's live total — derived from
+	 * the link graph, never a stored counter.
+	 */
+	private openSpendPoint(): void {
+		new SpendAreaModal(this.app, listAreas(this.app), (name) => {
+			this.points
+				.spendPoint(name)
+				.then(({ area, total, createdArea }) => {
+					if (createdArea) {
+						new Notice(`Created new area "${area.basename}".`);
+					}
+					new Notice(`+1 on ${area.basename} · ${total} total`);
+				})
+				.catch((err: unknown) => {
+					console.error('Spend a point: failed to spend point', err);
+					new Notice('Spend a point: failed to spend point.');
 				});
 		}).open();
 	}

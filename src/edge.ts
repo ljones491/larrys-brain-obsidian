@@ -50,6 +50,31 @@ export function buildEdgeLine(type: string, targetBasename: string): string {
 	return `${type}: [[${targetBasename}]]`;
 }
 
+/**
+ * Read back the targets of every `TYPE: [[Target]]` edge of one type in a note's
+ * text — the inverse of {@link buildEdgeLine}. Returns each target's basename,
+ * stripping a `[[Target|alias]]` display alias down to the linked note. Matches
+ * only whole lines (leading whitespace tolerated) so a `[[link]]` sitting in
+ * prose is never mistaken for an edge. `type` is matched case-sensitively, in the
+ * upper-snake form edges are written in.
+ *
+ * Pure, so the metadata graph the Points tally walks can be assembled and tested
+ * from plain note text without an `App`.
+ */
+export function parseEdgeTargets(text: string, type: string): string[] {
+	const targets: string[] = [];
+	for (const line of text.split('\n')) {
+		const match = /^\s*([A-Z0-9_]+):\s*\[\[([^\]]+)\]\]\s*$/.exec(line);
+		const inner = match?.[2];
+		if (!match || match[1] !== type || inner === undefined) {
+			continue;
+		}
+		// Drop a `|alias` display suffix; the link target is what identifies the note.
+		targets.push(inner.replace(/\|.*$/, '').trim());
+	}
+	return targets;
+}
+
 /** Options controlling how an appended edge is spaced from the note body. */
 export interface AppendEdgeOptions {
 	/**

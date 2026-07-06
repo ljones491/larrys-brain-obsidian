@@ -98,14 +98,32 @@ CortexView is now the entry point for Create object, Relate, and Promote (no lon
 
 `main.ts` wires `create/modify/delete/rename` → `index.onModify/onDelete`. On load, `restore()` (snapshot) → `reconcile()` (drop deleted, re-read mtime-changed) or `rebuild()` (scan all). Every mutation path awaits `build()` first so an early event can't race the initial load; the build is deferred to `onLayoutReady` and memoized; `onunload` flushes pending writes. The most carefully engineered part of the codebase.
 
-### Points (in progress — foundation only)
+### Points (in progress — spend path shipped)
 
-Subsumes the standalone Points CLI (see `GOAL.md`): "spend a point" to log where focus goes, tallied by rolling `ON`-points up an `UNDER` hierarchy of areas. A *system-owned* note kind — **not** an Object/Set — riding `edge.ts` directly. So far only the pure core exists, no command/UI/vault I/O yet:
+Subsumes the standalone Points CLI (see `GOAL.md`): "spend a point" to log where focus goes, tallied by rolling `ON`-points up an `UNDER` hierarchy of areas. A *system-owned* note kind — **not** an Object/Set — riding `edge.ts` directly.
+
+Pure core:
 
 - `points/constants.ts` — owns the literals: `#points/area` / `#points/point` tags, `UNDER` / `ON` edge types, folders, and `normalizeAreaName` (case/whitespace-folded matching key). **Layout call:** point events live under `larrys-meta/points/` (excluded from search by `isInMetaFolder`); area hubs live in a searchable `points/` folder. GOAL.md's prose files both under the meta tree, but that conflicts with its stronger "keep area notes searchable" rule, so areas sit outside it — no `search-index.ts` change needed.
 - `points/tally.ts` — the tally walk, pure and unit-tested. `buildGraph(under, on)` indexes edges; `tallyFor`/`tallyAll` count distinct points `ON` an area or any descendant reachable *downward* through `UNDER`. Diamond-safe (dedupe by point id) and cycle-safe (visited set). Tallies are derived, never stored.
+- `points/note.ts` — the area/point note schema (frontmatter + tags + the point's baked-in `ON` edge) and tag recognizers, pure like `memory-note.ts`.
+- `edge.ts` `parseEdgeTargets(text, type)` — pure inverse of `buildEdgeLine`; reads edge targets back out of a note *body* (edges aren't in frontmatter, so the link cache can't type them). This is what lets the graph be assembled from text.
 
-Still to build: the spend command + fuzzy area modal, the dockable Points panel, in-note area dashboards, `UNDER` parenting, and the `appendEdge` → `Vault.process` migration GOAL.md folds into this work.
+Vertical slice — **spend a point** (command → note web):
+
+```
+Ribbon "plus-circle" / command "Spend a point" (main.ts)
+  → SpendAreaModal (FuzzySuggest over listAreas + "+ new area…")   [points/spend-area-modal.ts]
+  → PointsBook.spendPoint(name)                                     [points/points.ts]
+      ├─ resolveArea: match by normalizeAreaName over listAreas, else createUniqueNote in points/
+      ├─ createPointNote: createUniqueNote in larrys-meta/points/, ON edge baked in
+      └─ loadPointGraph(app) → tallyFor(graph, area)                [points/graph-source.ts]
+  → Notice "+1 on Dishes · 14 total" (and "Created new area …" when new)
+```
+
+`points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) parses `UNDER`/`ON` from note bodies into the tally arrays; `listAreas`/`loadPointGraph` (App) gather notes by tag and read bodies via `cachedRead`. Spend writes no `appendEdge` — the point's `ON` edge is part of the note's initial contents — so the `appendEdge` race doesn't touch this path.
+
+Still to build: the dockable Points panel + colored-square tally, in-note area dashboards, `UNDER` parenting/relate affordances (Journey #3, where `appendEdge` *is* used), and the `appendEdge` → `Vault.process` migration GOAL.md folds into this work.
 
 ## Risks
 
