@@ -25,6 +25,7 @@ src/
   remember/               # Remember: search-index, memory-web, search, modals
   object/                 # Objects/Sets: kinds, instances, promote, .base files, Cortex panel
   relate/                 # Relate: edge-type modal + relevance note picker
+  points/                 # Points (in progress): system-owned area/point notes
   utils/notes.ts          # createUniqueNote, sanitize, stamps, suffix strip
 ```
 
@@ -96,6 +97,15 @@ CortexView is now the entry point for Create object, Relate, and Promote (no lon
 ### Index freshness (the search invariant)
 
 `main.ts` wires `create/modify/delete/rename` → `index.onModify/onDelete`. On load, `restore()` (snapshot) → `reconcile()` (drop deleted, re-read mtime-changed) or `rebuild()` (scan all). Every mutation path awaits `build()` first so an early event can't race the initial load; the build is deferred to `onLayoutReady` and memoized; `onunload` flushes pending writes. The most carefully engineered part of the codebase.
+
+### Points (in progress — foundation only)
+
+Subsumes the standalone Points CLI (see `GOAL.md`): "spend a point" to log where focus goes, tallied by rolling `ON`-points up an `UNDER` hierarchy of areas. A *system-owned* note kind — **not** an Object/Set — riding `edge.ts` directly. So far only the pure core exists, no command/UI/vault I/O yet:
+
+- `points/constants.ts` — owns the literals: `#points/area` / `#points/point` tags, `UNDER` / `ON` edge types, folders, and `normalizeAreaName` (case/whitespace-folded matching key). **Layout call:** point events live under `larrys-meta/points/` (excluded from search by `isInMetaFolder`); area hubs live in a searchable `points/` folder. GOAL.md's prose files both under the meta tree, but that conflicts with its stronger "keep area notes searchable" rule, so areas sit outside it — no `search-index.ts` change needed.
+- `points/tally.ts` — the tally walk, pure and unit-tested. `buildGraph(under, on)` indexes edges; `tallyFor`/`tallyAll` count distinct points `ON` an area or any descendant reachable *downward* through `UNDER`. Diamond-safe (dedupe by point id) and cycle-safe (visited set). Tallies are derived, never stored.
+
+Still to build: the spend command + fuzzy area modal, the dockable Points panel, in-note area dashboards, `UNDER` parenting, and the `appendEdge` → `Vault.process` migration GOAL.md folds into this work.
 
 ## Risks
 
