@@ -69,6 +69,24 @@ export function syncBaseColumns(contents: string, def: ObjectKindDef): string {
 }
 
 /**
+ * Bring an existing `.base` file's filter tag back in line with `def`, replacing
+ * the argument of the generated `file.hasTag("object/…")` expression and leaving
+ * everything else untouched. The companion to {@link syncBaseColumns} for the one
+ * thing that changes when a kind moves into (or out of) a domain: its instance
+ * tag. Without this the set view would keep filtering on the kind's old tag after
+ * a migration and show an empty table.
+ *
+ * Works on the file text like the column sync, and only touches `hasTag` calls in
+ * the `object/` namespace, so any other filter the user added survives verbatim.
+ */
+export function syncBaseTag(contents: string, def: ObjectKindDef): string {
+	return contents.replace(
+		/file\.hasTag\("object\/[^"]*"\)/g,
+		`file.hasTag(${JSON.stringify(def.objectTag)})`,
+	);
+}
+
+/**
  * List the view names declared in a `.base` file, in file order. Used to offer
  * the user a preferred view to open a kind's set to (a base opened directly
  * always shows its first view, so a user with a cards view as well needs a way

@@ -38,6 +38,64 @@ export const OBJECT_KIND_TAG = `${META_TAG}/object-kind`;
  */
 export const OBJECT_NAMESPACE = 'object';
 
+/**
+ * Compose an OBJECT instance tag from an optional domain and a kind, both bare
+ * (no `#`). A domain adds a middle level — `media` + `book` → `object/media/book`
+ * — so kinds can be grouped: the parent `object/media` tag then targets every
+ * kind in that domain at once (one graph color group, one Bases filter). A blank
+ * domain yields the flat `object/book`, so ungrouped kinds keep their old tag.
+ *
+ * The tag *is* the source of truth for a kind's domain — there is no separate
+ * field — so this and {@link parseObjectTag} are the single round-trip both the
+ * writer and the reader share.
+ */
+export function buildObjectTag(domain: string, kind: string): string {
+	const d = domain.trim().replace(/^#/, '').trim();
+	const k = kind.trim().replace(/^#/, '').trim();
+	return d.length > 0 ? `${OBJECT_NAMESPACE}/${d}/${k}` : `${OBJECT_NAMESPACE}/${k}`;
+}
+
+/**
+ * Split an OBJECT instance tag back into its domain and kind. Drops the leading
+ * `object` namespace, treats the final `/` segment as the kind and everything
+ * between as the domain (blank when the kind sits directly under the namespace):
+ * `object/media/book` → `{ domain: 'media', kind: 'book' }`, `object/book` →
+ * `{ domain: '', kind: 'book' }`. The inverse of {@link buildObjectTag}.
+ */
+export function parseObjectTag(objectTag: string): { domain: string; kind: string } {
+	const segments = objectTag.replace(/^#/, '').trim().split('/');
+	if (segments[0] === OBJECT_NAMESPACE) {
+		segments.shift();
+	}
+	const kind = segments.pop() ?? '';
+	return { domain: segments.join('/'), kind };
+}
+
+/**
+ * Rewrite a note's `tags` value, replacing `oldTag` with `newTag` and leaving the
+ * rest as they are. Accepts the frontmatter shapes Obsidian reports — a list, a
+ * single string, or nothing — and always returns a clean list: each tag stripped
+ * of a leading `#` and trimmed, blanks and duplicates dropped. The primitive
+ * behind moving a kind into (or out of) a domain, where every instance's tag has
+ * to swap from `object/book` to `object/media/book`.
+ */
+export function replaceTagInList(tags: unknown, oldTag: string, newTag: string): string[] {
+	const from = oldTag.replace(/^#/, '').trim();
+	const list = Array.isArray(tags) ? tags : typeof tags === 'string' ? [tags] : [];
+	const out: string[] = [];
+	for (const raw of list) {
+		if (typeof raw !== 'string') {
+			continue;
+		}
+		const tag = raw.replace(/^#/, '').trim();
+		const mapped = tag === from ? newTag : tag;
+		if (mapped.length > 0 && !out.includes(mapped)) {
+			out.push(mapped);
+		}
+	}
+	return out;
+}
+
 /** A kind's contract: the tag its instances carry and the properties they may set. */
 export interface ObjectKindDef {
 	/** Tag that instances of this kind carry, e.g. `book`. Stored without a `#`. */

@@ -16,11 +16,13 @@ import { CreateObjectModal } from './object/create-object-modal';
 import {
 	createObject,
 	listObjectKinds,
+	moveKindToDomain,
 	promoteToObject,
 	writeSetBase,
 } from './object/object';
 import type { ObjectKindOption } from './object/object';
-import { recognizeObjectKind } from './object/object-note';
+import { parseObjectTag, recognizeObjectKind } from './object/object-note';
+import { MoveToDomainModal } from './object/move-to-domain-modal';
 import { RelateModal, RelateChoice } from './relate/relate-modal';
 import { RelateSearchModal } from './relate/relate-search-modal';
 import {
@@ -225,6 +227,29 @@ export default class LarrysBrainPlugin extends Plugin {
 			console.error('Promote: failed to promote note', err);
 			new Notice('Promote: failed to promote note.');
 		});
+	}
+
+	/**
+	 * Move a kind into a domain (or out of one). Invoked from the Cortex panel's
+	 * per-kind right-click menu. Prompts for a domain, prefilled with the kind's
+	 * current one, then retags the kind and its whole set via {@link moveKindToDomain}.
+	 * The Cortex panel re-renders itself off the metadata changes the move makes.
+	 */
+	moveKindToDomain(kind: ObjectKindOption): void {
+		const { domain } = parseObjectTag(kind.def.objectTag);
+		new MoveToDomainModal(this.app, kind.name, domain, (next) => {
+			moveKindToDomain(this.app, kind, next)
+				.then((count) => {
+					const where = next ? `to ${next}` : 'out of its domain';
+					new Notice(
+						`Moved ${kind.name} ${where} (${count} note${count === 1 ? '' : 's'} retagged).`,
+					);
+				})
+				.catch((err: unknown) => {
+					console.error('Move to domain: failed to migrate kind', err);
+					new Notice('Move to domain: failed to migrate kind.');
+				});
+		}).open();
 	}
 
 	private openRemember(): void {

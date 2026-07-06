@@ -9,6 +9,7 @@ import { NewObjectKind } from './object-kind';
 export class DefineObjectKindModal extends Modal {
 	private name = '';
 	private propertiesRaw = '';
+	private domain = '';
 
 	constructor(
 		app: App,
@@ -34,6 +35,21 @@ export class DefineObjectKindModal extends Modal {
 					.setPlaceholder('book')
 					.onChange((value) => {
 						this.name = value;
+					}),
+			);
+
+		new Setting(contentEl)
+			.setName('Domain')
+			// The example domain is lowercase by convention; keep it lowercase.
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
+			.setDesc('Optional group for the kind, e.g. media. Blank leaves it ungrouped.')
+			.addText((text) =>
+				text
+					// Domains are lowercase by convention; keep the example lowercase.
+					// eslint-disable-next-line obsidianmd/ui/sentence-case
+					.setPlaceholder('media')
+					.onChange((value) => {
+						this.domain = value;
 					}),
 			);
 
@@ -78,7 +94,11 @@ export class DefineObjectKindModal extends Modal {
 			return;
 		}
 		this.close();
-		this.onSubmit({ name, properties: parseProperties(this.propertiesRaw) });
+		this.onSubmit({
+			name,
+			properties: parseProperties(this.propertiesRaw),
+			domain: this.domain.trim(),
+		});
 	}
 
 	onClose(): void {

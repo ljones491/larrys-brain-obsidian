@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import {
 	buildObjectKindContents,
-	OBJECT_NAMESPACE,
+	buildObjectTag,
 	ObjectKindDef,
 } from './object-note';
 import { META_FOLDER, normalizeTag } from '../meta';
@@ -20,6 +20,12 @@ export interface NewObjectKind {
 	name: string;
 	/** Property names the user listed, already split and trimmed. */
 	properties: string[];
+	/**
+	 * Optional domain to group the kind under, e.g. "media". Adds a middle tag
+	 * level so the instance tag becomes `object/media/book`. Blank leaves the kind
+	 * ungrouped at `object/book`.
+	 */
+	domain?: string;
 }
 
 /**
@@ -36,7 +42,7 @@ export async function createObjectKind(
 	input: NewObjectKind,
 ): Promise<TFile> {
 	const normalized = normalizeTag(input.name);
-	const objectTag = `${OBJECT_NAMESPACE}/${normalized}`;
+	const objectTag = buildObjectTag(normalizeTag(input.domain ?? ''), normalized);
 	const def: ObjectKindDef = { objectTag, properties: input.properties };
 	const baseName = sanitizeFileName(input.name) || normalized;
 	// Keep kind definitions (meta notes) in their own folder, away from the

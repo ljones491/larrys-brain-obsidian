@@ -8,6 +8,7 @@ import {
 	writeSetBase,
 } from './object';
 import { listBaseViews } from './object-base';
+import { parseObjectTag } from './object-note';
 import { listThoughtNotes } from '../capture/thought';
 import type { ObjectKindOption } from './object';
 import type LarrysBrainPlugin from '../main';
@@ -169,50 +170,33 @@ export class CortexView extends ItemView {
 				cls: 'larrys-brain-cortex-empty',
 			});
 		} else {
-			const list = section.createDiv({ cls: 'larrys-brain-cortex-list' });
+			// Group kinds by their tag's domain so a "media" domain gathers book,
+			// song, etc. under one subheading. Ungrouped kinds (no domain) render
+			// first with no heading; named domains follow in alphabetical order.
+			const byDomain = new Map<string, ObjectKindOption[]>();
 			for (const kind of kinds) {
-				const row = list.createDiv({ cls: 'larrys-brain-cortex-row' });
-
-				const button = row.createEl('button', {
-					text: kind.name,
-					cls: 'larrys-brain-cortex-item',
-				});
-				// Left-click opens the set to its preferred view (first by default).
-				button.addEventListener('click', () => this.openKind(kind));
-				// Right-click picks which view to open this kind's set to.
-				button.addEventListener('contextmenu', (evt) => {
-					evt.preventDefault();
-					void this.showViewMenu(evt, kind);
-				});
-
-				// A create button opens the Create object modal preset to this kind.
-				const create = row.createEl('button', {
-					cls: 'larrys-brain-cortex-create',
-					attr: { 'aria-label': `Create ${kind.name}` },
-				});
-				setIcon(create, 'plus');
-				create.addEventListener('click', () =>
-					this.plugin.openCreateObject(kind),
-				);
-
-				// A promote button reshapes the active note into a member of this
-				// kind — one-click, since the button already picks the kind.
-				const promote = row.createEl('button', {
-					cls: 'larrys-brain-cortex-promote',
-					attr: { 'aria-label': `Promote note to ${kind.name}` },
-				});
-				setIcon(promote, 'arrow-up');
-				promote.addEventListener('click', () =>
-					this.plugin.promoteActiveNote(kind),
-				);
-
-				// A shuffle button opens a random member of this kind's set.
-				const shuffle = row.createEl('button', {
-					cls: 'larrys-brain-cortex-shuffle',
-					attr: { 'aria-label': `Shuffle ${kind.name}` },
-				});
-				setIcon(shuffle, 'shuffle');
-				shuffle.addEventListener('click', () => this.openRandom(kind));
+				const { domain } = parseObjectTag(kind.def.objectTag);
+				const group = byDomain.get(domain) ?? [];
+				group.push(kind);
+				byDomain.set(domain, group);
+			}
+			const domains = [...byDomain.keys()].sort((a, b) => {
+				// The ungrouped bucket ('') sorts to the top; the rest alphabetical.
+				if (a === '') return -1;
+				if (b === '') return 1;
+				return a.localeCompare(b);
+			});
+			for (const domain of domains) {
+				if (domain !== '') {
+					section.createEl('div', {
+						text: domain,
+						cls: 'larrys-brain-cortex-domain-heading',
+					});
+				}
+				const list = section.createDiv({ cls: 'larrys-brain-cortex-list' });
+				for (const kind of byDomain.get(domain) ?? []) {
+					this.renderKindRow(list, kind);
+				}
 			}
 		}
 
@@ -221,6 +205,48 @@ export class CortexView extends ItemView {
 		setIcon(define.createSpan({ cls: 'larrys-brain-cortex-define-icon' }), 'plus');
 		define.createSpan({ text: 'Define object kind' });
 		define.addEventListener('click', () => this.plugin.openDefineObjectKind());
+	}
+
+	/** One kind's row: open button plus create/promote/shuffle actions. */
+	private renderKindRow(list: HTMLElement, kind: ObjectKindOption): void {
+		const row = list.createDiv({ cls: 'larrys-brain-cortex-row' });
+
+		const button = row.createEl('button', {
+			text: kind.name,
+			cls: 'larrys-brain-cortex-item',
+		});
+		// Left-click opens the set to its preferred view (first by default).
+		button.addEventListener('click', () => this.openKind(kind));
+		// Right-click picks which view to open this kind's set to, or moves it.
+		button.addEventListener('contextmenu', (evt) => {
+			evt.preventDefault();
+			void this.showKindMenu(evt, kind);
+		});
+
+		// A create button opens the Create object modal preset to this kind.
+		const create = row.createEl('button', {
+			cls: 'larrys-brain-cortex-create',
+			attr: { 'aria-label': `Create ${kind.name}` },
+		});
+		setIcon(create, 'plus');
+		create.addEventListener('click', () => this.plugin.openCreateObject(kind));
+
+		// A promote button reshapes the active note into a member of this kind —
+		// one-click, since the button already picks the kind.
+		const promote = row.createEl('button', {
+			cls: 'larrys-brain-cortex-promote',
+			attr: { 'aria-label': `Promote note to ${kind.name}` },
+		});
+		setIcon(promote, 'arrow-up');
+		promote.addEventListener('click', () => this.plugin.promoteActiveNote(kind));
+
+		// A shuffle button opens a random member of this kind's set.
+		const shuffle = row.createEl('button', {
+			cls: 'larrys-brain-cortex-shuffle',
+			attr: { 'aria-label': `Shuffle ${kind.name}` },
+		});
+		setIcon(shuffle, 'shuffle');
+		shuffle.addEventListener('click', () => this.openRandom(kind));
 	}
 
 	/** Open a random member of the kind's set in the main view. */
@@ -249,11 +275,12 @@ export class CortexView extends ItemView {
 	}
 
 	/**
-	 * Show a context menu of the kind's base views, the preferred one checked.
-	 * Choosing a view stores it as this set's preference and opens to it. The
-	 * base is written/refreshed first so its current view list is read back.
+	 * Show a context menu for a kind: its base views (the preferred one checked,
+	 * choosing one stores it as this set's preference and opens to it) plus a
+	 * "Move to domain…" action. The base is written/refreshed first so its current
+	 * view list is read back.
 	 */
-	private async showViewMenu(evt: MouseEvent, kind: ObjectKindOption): Promise<void> {
+	private async showKindMenu(evt: MouseEvent, kind: ObjectKindOption): Promise<void> {
 		const path = setBasePath(kind.name, kind.def);
 		await writeSetBase(this.app, kind.name, kind.def);
 		const file = this.app.vault.getAbstractFileByPath(path);
@@ -286,6 +313,13 @@ export class CortexView extends ItemView {
 				);
 			}
 		}
+		menu.addSeparator();
+		menu.addItem((item) =>
+			item
+				.setTitle('Move to domain…')
+				.setIcon('folder-tree')
+				.onClick(() => this.plugin.moveKindToDomain(kind)),
+		);
 		menu.showAtMouseEvent(evt);
 	}
 

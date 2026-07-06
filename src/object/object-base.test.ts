@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { buildBaseFile, listBaseViews, syncBaseColumns } from './object-base';
+import { buildBaseFile, listBaseViews, syncBaseColumns, syncBaseTag } from './object-base';
+
+describe('syncBaseTag', () => {
+	it('rewrites the filter tag when a kind moves into a domain', () => {
+		const contents = buildBaseFile('book', { objectTag: 'object/book', properties: ['author'] });
+		const synced = syncBaseTag(contents, { objectTag: 'object/media/book', properties: ['author'] });
+		expect(synced).toContain(`file.hasTag("object/media/book")`);
+		expect(synced).not.toContain(`file.hasTag("object/book")`);
+	});
+
+	it('leaves the outer single quotes and the rest of the file intact', () => {
+		const contents = buildBaseFile('book', { objectTag: 'object/book', properties: [] });
+		const synced = syncBaseTag(contents, { objectTag: 'object/media/book', properties: [] });
+		expect(synced).toContain(`- 'file.hasTag("object/media/book")'`);
+		expect(synced).toContain('type: table');
+	});
+
+	it('is a no-op when the tag is unchanged', () => {
+		const contents = buildBaseFile('book', { objectTag: 'object/book', properties: [] });
+		expect(syncBaseTag(contents, { objectTag: 'object/book', properties: [] })).toBe(contents);
+	});
+});
 
 describe('buildBaseFile', () => {
 	it('filters on the kind tag and lists the title plus a column per property', () => {

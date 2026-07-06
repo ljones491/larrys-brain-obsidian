@@ -3,12 +3,14 @@ import type { App } from 'obsidian';
 import { TFile } from 'obsidian';
 import {
 	listObjects,
+	moveKindToDomain,
 	ObjectKindOption,
 	openSetBase,
 	pickRandom,
 	promoteToObject,
 	setBasePath,
 } from './object';
+import { buildBaseFile } from './object-base';
 import { OBJECT_KIND_TAG } from './object-note';
 
 /** A vault file with the frontmatter its metadata cache will report. */
@@ -161,6 +163,106 @@ describe('promoteToObject', () => {
 
 		expect(file.path).toBe('Dune.md');
 		expect(file.basename).toBe('Dune');
+	});
+});
+
+describe('moveKindToDomain', () => {
+	/**
+	 * A fake app over an in-memory vault covering the slice the migration touches:
+	 * markdown files with per-path frontmatter, `processFrontMatter` that mutates
+	 * it in place, and the folder/file/read/modify calls `writeSetBase` makes.
+	 */
+	function fakeMigrationApp(
+		notes: Record<string, Record<string, unknown>>,
+		baseFiles: Record<string, string> = {},
+	): { app: App; frontmatter: (path: string) => Record<string, unknown>; base: (path: string) => string } {
+		const fm = new Map(Object.entries(notes).map(([p, f]) => [p, { ...f }]));
+		const contents = new Map(Object.entries(baseFiles));
+		const folders = new Set<string>();
+		const fileFor = (path: string): TFile =>
+			Object.assign(new TFile(), {
+				path,
+				basename: path.replace(/\.[^.]+$/, '').split('/').pop() ?? path,
+			});
+		const app = {
+			vault: {
+				getMarkdownFiles: () => [...fm.keys()].map(fileFor),
+				getAbstractFileByPath: (path: string) =>
+					contents.has(path)
+						? fileFor(path)
+						: folders.has(path)
+							? ({ path } as unknown)
+							: null,
+				createFolder: (path: string) => {
+					folders.add(path);
+					return Promise.resolve();
+				},
+				create: (path: string, data: string) => {
+					contents.set(path, data);
+					return Promise.resolve(fileFor(path));
+				},
+				read: (file: TFile) => Promise.resolve(contents.get(file.path) ?? ''),
+				modify: (file: TFile, data: string) => {
+					contents.set(file.path, data);
+					return Promise.resolve();
+				},
+			},
+			metadataCache: {
+				getFileCache: (file: TFile) => ({ frontmatter: fm.get(file.path) }),
+			},
+			fileManager: {
+				processFrontMatter: (file: TFile, fn: (f: Record<string, unknown>) => void) => {
+					const current = fm.get(file.path) ?? {};
+					fn(current);
+					fm.set(file.path, current);
+					return Promise.resolve();
+				},
+			},
+		} as unknown as App;
+		return {
+			app,
+			frontmatter: (path) => fm.get(path) ?? {},
+			base: (path) => contents.get(path) ?? '',
+		};
+	}
+
+	// Like bookKind, but with a definition note the migration can rewrite in place.
+	const migrationKind: ObjectKindOption = {
+		...bookKind,
+		file: Object.assign(new TFile(), { path: 'book.md', basename: 'book' }),
+	};
+
+	it('retags every instance, the kind note, and the base filter', async () => {
+		const { app, frontmatter, base } = fakeMigrationApp(
+			{
+				'Dune.md': { tags: ['object/book'], author: 'Frank Herbert' },
+				'Annihilation.md': { tags: ['object/book', 'favorite'] },
+				'book.md': { tags: [OBJECT_KIND_TAG], 'object-tag': 'object/book' },
+				'singing.md': { tags: ['object/skill'] },
+			},
+			{ 'sets/book.base': buildBaseFile('book', bookKind.def) },
+		);
+
+		const count = await moveKindToDomain(app, migrationKind, 'media');
+
+		expect(count).toBe(2);
+		expect(frontmatter('Dune.md').tags).toEqual(['object/media/book']);
+		expect(frontmatter('Annihilation.md').tags).toEqual(['object/media/book', 'favorite']);
+		// The kind definition points at the new tag; an unrelated note is untouched.
+		expect(frontmatter('book.md')['object-tag']).toBe('object/media/book');
+		expect(frontmatter('singing.md').tags).toEqual(['object/skill']);
+		// The set view now filters on the domained tag.
+		expect(base('sets/book.base')).toContain('file.hasTag("object/media/book")');
+	});
+
+	it('is a no-op when the domain does not change', async () => {
+		const { app, frontmatter } = fakeMigrationApp({
+			'Dune.md': { tags: ['object/book'] },
+			'book.md': { tags: [OBJECT_KIND_TAG], 'object-tag': 'object/book' },
+		});
+
+		expect(await moveKindToDomain(app, migrationKind, '')).toBe(0);
+		expect(frontmatter('Dune.md').tags).toEqual(['object/book']);
 	});
 });
 
