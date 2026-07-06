@@ -47,6 +47,7 @@ These literals *are* the API between features. Each has one owning module — ch
 - `larrys-meta` (tag + folder root) — `meta.ts`. Recognizes the plugin's own notes; keeps them out of search.
 - `thought` / `hmm` (default tag / title suffix) — `settings.ts`. Promote strips these to un-thought a note.
 - `FOUND`, `LINKS`, `#search` — edge and memory-note vocabulary; `isRepeat` matches on normalized `query` frontmatter.
+- `object/<kind>` / `object/<domain>/<kind>` — instance tag shape. `object-note.ts` `buildObjectTag`/`parseObjectTag` are the single round-trip; the tag *is* the source of truth for a kind's domain (no separate field). Nothing downstream assumes a fixed segment count, so a domain is just a middle tag level — instances, `listObjects`, `.base` filters, and hierarchical graph color groups (`tag:#object/media`) all work unchanged.
 - `sets/` + `<name>.base` — `object.ts` `setBasePath` is the single source of truth.
 - `SNAPSHOT_VERSION` — bump to invalidate the on-disk index; moves together with `MINISEARCH_OPTIONS`.
 
@@ -87,6 +88,8 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                              opens Define kind).
                              A "Current note" section relates the active note.
 ```
+
+Kinds can be grouped into **domains**: a kind's instance tag optionally nests a middle level (`object/media/book`), set at Define time (an optional Domain field) or later via the Cortex kind's right-click "Move to domain…". Moving is a full migration — `moveKindToDomain` (`object.ts`) retags every instance via `processFrontMatter`, rewrites the kind note's `object-tag`, and realigns the `.base` filter (`writeSetBase` now syncs the tag as well as the columns, via `syncBaseTag`). Cortex groups its Object-sets list under domain subheadings. Domains buy per-domain graph coloring for free: one hierarchical color group (`tag:#object/media`) covers every kind beneath it, so colors aren't set per kind.
 
 CortexView is now the entry point for Create object, Relate, and Promote (no longer command-palette commands); Larry write and Remember remain commands. Promote is one-click per kind — the button picks the kind, so there is no longer a PromoteModal. A "Thoughts" section adds a one-click "Random thought" button — the unstructured counterpart to a set's shuffle, opening a random loose thought (`listThoughtNotes` in `capture/thought.ts`, filtered by the configured `thought` tag, meta excluded).
 

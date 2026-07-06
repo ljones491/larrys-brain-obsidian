@@ -4,8 +4,15 @@ import {
 	ObjectInstance,
 	recognizeObjectInstance,
 } from './object-instance';
-import { ObjectKindDef, recognizeObjectKind } from './object-note';
-import { buildBaseFile, syncBaseColumns } from './object-base';
+import {
+	buildObjectTag,
+	ObjectKindDef,
+	parseObjectTag,
+	recognizeObjectKind,
+	replaceTagInList,
+} from './object-note';
+import { buildBaseFile, syncBaseColumns, syncBaseTag } from './object-base';
+import { normalizeTag } from '../meta';
 import { buildPromotedContents, PromotionOptions, splitFrontmatter } from './promote';
 import {
 	createUniqueNote,
@@ -228,11 +235,61 @@ export async function writeSetBase(
 		return;
 	}
 	const contents = await app.vault.read(existing);
-	const synced = syncBaseColumns(contents, def);
+	// Keep both the filter tag and the column list aligned with the kind's
+	// contract; the user's other filters, sorting, and views are left alone.
+	const synced = syncBaseColumns(syncBaseTag(contents, def), def);
 	// Skip a no-op write so unrelated edits to a kind note don't churn the base.
 	if (synced !== contents) {
 		await app.vault.modify(existing, synced);
 	}
+}
+
+/**
+ * Move a kind into a domain (or out of one, or to a different one), migrating the
+ * whole set. A domain adds a middle tag level — moving `book` to `media` retags
+ * `object/book` → `object/media/book` — so kinds can be grouped for a single
+ * graph color group or Bases filter per domain. A blank `domain` flattens the
+ * kind back to `object/<kind>`.
+ *
+ * Rewrites, in order: every existing instance's tag (via `processFrontMatter`, so
+ * only the `tags` field is touched and the rest of each note is untouched), then
+ * the kind definition note's `object-tag`, then the kind's `.base` filter through
+ * {@link writeSetBase}. Instances are collected against the *old* tag first, since
+ * that's how they're still recognized before the swap. Returns the number of
+ * instances retagged. A no-op (returns 0) when the domain doesn't actually change.
+ *
+ * Only frontmatter tags are rewritten — the shape the plugin writes. Any inline
+ * `#object/<kind>` a user typed into a note body is left as-is.
+ */
+export async function moveKindToDomain(
+	app: App,
+	kind: ObjectKindOption,
+	domain: string,
+): Promise<number> {
+	const oldTag = kind.def.objectTag;
+	const { kind: kindName } = parseObjectTag(oldTag);
+	const newTag = buildObjectTag(normalizeTag(domain), kindName);
+	if (newTag === oldTag) {
+		return 0;
+	}
+	const newDef: ObjectKindDef = { objectTag: newTag, properties: kind.def.properties };
+
+	// Retag the members first, while the old tag still identifies them.
+	const instances = listObjects(app, kind);
+	for (const { file } of instances) {
+		await app.fileManager.processFrontMatter(file, (frontmatter: Record<string, unknown>) => {
+			frontmatter.tags = replaceTagInList(frontmatter.tags, oldTag, newTag);
+		});
+	}
+
+	// Point the kind definition at the new tag, then realign its set view. The
+	// base is keyed by the kind's name (unchanged), so only its filter moves.
+	await app.fileManager.processFrontMatter(kind.file, (frontmatter: Record<string, unknown>) => {
+		frontmatter['object-tag'] = newTag;
+	});
+	await writeSetBase(app, kind.name, newDef);
+
+	return instances.length;
 }
 
 /**
