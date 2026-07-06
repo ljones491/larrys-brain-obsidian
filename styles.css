@@ -168,6 +168,26 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-faint);
 }
 
+/* A titled feature area within the panel; separated so more can be stacked. */
+.larrys-brain-cortex-section + .larrys-brain-cortex-section {
+	margin-top: var(--size-4-4);
+}
+
+.larrys-brain-cortex-section-heading {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: var(--size-4-1);
+}
+
+.larrys-brain-cortex-section-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	margin-bottom: var(--size-4-2);
+}
+
 .larrys-brain-cortex-list {
 	display: flex;
 	flex-direction: column;

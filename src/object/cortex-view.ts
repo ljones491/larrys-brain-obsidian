@@ -61,16 +61,27 @@ export class CortexView extends ItemView {
 		// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Larry's Brain Cortex" is a proper name
 		container.createEl('h4', { text: "Larry's Brain Cortex" });
 
+		// Each feature area is its own titled section so more can be added later.
+		const section = container.createDiv({ cls: 'larrys-brain-cortex-section' });
+		section.createEl('div', {
+			text: 'Object sets',
+			cls: 'larrys-brain-cortex-section-heading',
+		});
+		section.createEl('div', {
+			text: 'Open a kind’s set view. Right-click to pick which view.',
+			cls: 'larrys-brain-cortex-section-hint',
+		});
+
 		const kinds = listObjectKinds(this.app);
 		if (kinds.length === 0) {
-			container.createEl('p', {
+			section.createEl('p', {
 				text: 'No object kinds yet. Define one to see its set here.',
 				cls: 'larrys-brain-cortex-empty',
 			});
 			return;
 		}
 
-		const list = container.createDiv({ cls: 'larrys-brain-cortex-list' });
+		const list = section.createDiv({ cls: 'larrys-brain-cortex-list' });
 		for (const kind of kinds) {
 			const button = list.createEl('button', {
 				text: kind.name,
