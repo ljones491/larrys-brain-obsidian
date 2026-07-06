@@ -88,7 +88,7 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                              A "Current note" section relates the active note.
 ```
 
-CortexView is now the entry point for Create object, Relate, and Promote (no longer command-palette commands); Larry write and Remember remain commands. Promote is one-click per kind — the button picks the kind, so there is no longer a PromoteModal.
+CortexView is now the entry point for Create object, Relate, and Promote (no longer command-palette commands); Larry write and Remember remain commands. Promote is one-click per kind — the button picks the kind, so there is no longer a PromoteModal. A "Thoughts" section adds a one-click "Random thought" button — the unstructured counterpart to a set's shuffle, opening a random loose thought (`listThoughtNotes` in `capture/thought.ts`, filtered by the configured `thought` tag, meta excluded).
 
 ### Index freshness (the search invariant)
 
