@@ -216,3 +216,17 @@ If your plugin does not need CSS, delete this file.
 	justify-content: center;
 	cursor: pointer;
 }
+
+/* Section-level action: define a new object kind. */
+.larrys-brain-cortex-define {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-4);
+	cursor: pointer;
+}
+
+.larrys-brain-cortex-define-icon {
+	display: flex;
+	align-items: center;
+}

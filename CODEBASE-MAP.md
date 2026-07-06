@@ -80,7 +80,8 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                           └─ belongs to a Set ◀── Define kind writes sets/<name>.base;
                              metadataCache 'changed' keeps its columns synced
                           └─ surfaced via CortexView panel (per-kind: openSetBase,
-                             or a shuffle button that opens a random member)
+                             or a shuffle button that opens a random member;
+                             a section button opens the Define kind modal)
 ```
 
 ### Index freshness (the search invariant)

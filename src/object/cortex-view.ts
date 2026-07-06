@@ -24,7 +24,8 @@ export const CORTEX_VIEW_TYPE = 'larrys-brain-set-view';
  * (`<name>.base`) in the main view — the "a button I can click to open the base"
  * idea in .dev/GOAL.md. Saves having to remember the base's folder/filename and
  * reach for the quick switcher. Each kind also gets a shuffle button that opens
- * a random member of its set in the main view.
+ * a random member of its set in the main view, and a section-level button opens
+ * the Define object kind modal (available even when no kinds exist yet).
  *
  * The panel is the UI shell; the open action itself is {@link openSetBase}, and
  * the kinds come from {@link listObjectKinds}. It re-renders when kinds change so
@@ -86,33 +87,38 @@ export class CortexView extends ItemView {
 				text: 'No object kinds yet. Define one to see its set here.',
 				cls: 'larrys-brain-cortex-empty',
 			});
-			return;
+		} else {
+			const list = section.createDiv({ cls: 'larrys-brain-cortex-list' });
+			for (const kind of kinds) {
+				const row = list.createDiv({ cls: 'larrys-brain-cortex-row' });
+
+				const button = row.createEl('button', {
+					text: kind.name,
+					cls: 'larrys-brain-cortex-item',
+				});
+				// Left-click opens the set to its preferred view (first by default).
+				button.addEventListener('click', () => this.openKind(kind));
+				// Right-click picks which view to open this kind's set to.
+				button.addEventListener('contextmenu', (evt) => {
+					evt.preventDefault();
+					void this.showViewMenu(evt, kind);
+				});
+
+				// A shuffle button opens a random member of this kind's set.
+				const shuffle = row.createEl('button', {
+					cls: 'larrys-brain-cortex-shuffle',
+					attr: { 'aria-label': `Shuffle ${kind.name}` },
+				});
+				setIcon(shuffle, 'shuffle');
+				shuffle.addEventListener('click', () => this.openRandom(kind));
+			}
 		}
 
-		const list = section.createDiv({ cls: 'larrys-brain-cortex-list' });
-		for (const kind of kinds) {
-			const row = list.createDiv({ cls: 'larrys-brain-cortex-row' });
-
-			const button = row.createEl('button', {
-				text: kind.name,
-				cls: 'larrys-brain-cortex-item',
-			});
-			// Left-click opens the set to its preferred view (first by default).
-			button.addEventListener('click', () => this.openKind(kind));
-			// Right-click picks which view to open this kind's set to.
-			button.addEventListener('contextmenu', (evt) => {
-				evt.preventDefault();
-				void this.showViewMenu(evt, kind);
-			});
-
-			// A shuffle button opens a random member of this kind's set.
-			const shuffle = row.createEl('button', {
-				cls: 'larrys-brain-cortex-shuffle',
-				attr: { 'aria-label': `Shuffle ${kind.name}` },
-			});
-			setIcon(shuffle, 'shuffle');
-			shuffle.addEventListener('click', () => this.openRandom(kind));
-		}
+		// Always offer a way to define a new kind, including from the empty state.
+		const define = section.createEl('button', { cls: 'larrys-brain-cortex-define' });
+		setIcon(define.createSpan({ cls: 'larrys-brain-cortex-define-icon' }), 'plus');
+		define.createSpan({ text: 'Define object kind' });
+		define.addEventListener('click', () => this.plugin.openDefineObjectKind());
 	}
 
 	/** Open a random member of the kind's set in the main view. */

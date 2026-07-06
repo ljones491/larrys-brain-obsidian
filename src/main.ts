@@ -119,12 +119,6 @@ export default class LarrysBrainPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'define-object-kind',
-			name: 'Define object kind',
-			callback: () => this.openDefineObjectKind(),
-		});
-
-		this.addCommand({
 			id: 'create-object',
 			name: 'Create object',
 			callback: () => this.openCreateObject(),
@@ -196,7 +190,8 @@ export default class LarrysBrainPlugin extends Plugin {
 		}).open();
 	}
 
-	private openDefineObjectKind(): void {
+	/** Open the Define object kind modal. Invoked from the Cortex panel button. */
+	openDefineObjectKind(): void {
 		new DefineObjectKindModal(this.app, (kind) => {
 			createObjectKind(this.app, kind).catch((err: unknown) => {
 				console.error('Define object kind: failed to create note', err);
