@@ -13,7 +13,6 @@ import { SearchIndex } from './remember/search-index';
 import { DefineObjectKindModal } from './object/define-object-kind-modal';
 import { createObjectKind } from './object/object-kind';
 import { CreateObjectModal } from './object/create-object-modal';
-import { PromoteModal } from './object/promote-modal';
 import {
 	createObject,
 	listObjectKinds,
@@ -118,23 +117,6 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openRemember(),
 		});
 
-		// Promote reshapes the note currently on screen, so it's only available
-		// when one is open; checkCallback hides it otherwise.
-		this.addCommand({
-			id: 'promote',
-			name: 'Promote to object',
-			checkCallback: (checking) => {
-				const subject = this.app.workspace.getActiveFile();
-				if (!subject) {
-					return false;
-				}
-				if (!checking) {
-					this.openPromote(subject);
-				}
-				return true;
-			},
-		});
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -197,26 +179,25 @@ export default class LarrysBrainPlugin extends Plugin {
 	}
 
 	/**
-	 * Promote the note on screen into an OBJECT instance of a chosen kind. Picks
-	 * the target kind, then rewrites the note in place — its body kept verbatim,
-	 * its configured memory tag (`thought`) swapped for the kind's instance tag,
-	 * and the kind's properties seeded from the note's existing frontmatter.
+	 * Promote the note on screen into an OBJECT instance of `kind`. Invoked from
+	 * the Cortex panel's per-kind promote button — the kind is chosen by which
+	 * button, so this is one-click: the note is rewritten in place, its body kept
+	 * verbatim, its configured memory tag (`thought`) swapped for the kind's
+	 * instance tag, and the kind's properties seeded from its existing frontmatter.
 	 */
-	private openPromote(subject: TFile): void {
-		const kinds = listObjectKinds(this.app);
-		if (kinds.length === 0) {
-			new Notice('Define an object kind first.');
+	promoteActiveNote(kind: ObjectKindOption): void {
+		const subject = this.app.workspace.getActiveFile();
+		if (!subject) {
+			new Notice('Open a note to promote it.');
 			return;
 		}
-		new PromoteModal(this.app, subject.basename, kinds, (kind) => {
-			promoteToObject(this.app, subject, kind, {
-				dropTag: this.settings.tag,
-				titleSuffix: this.settings.titleSuffix,
-			}).catch((err: unknown) => {
-				console.error('Promote: failed to promote note', err);
-				new Notice('Promote: failed to promote note.');
-			});
-		}).open();
+		promoteToObject(this.app, subject, kind, {
+			dropTag: this.settings.tag,
+			titleSuffix: this.settings.titleSuffix,
+		}).catch((err: unknown) => {
+			console.error('Promote: failed to promote note', err);
+			new Notice('Promote: failed to promote note.');
+		});
 	}
 
 	private openRemember(): void {

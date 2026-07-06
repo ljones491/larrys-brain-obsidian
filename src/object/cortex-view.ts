@@ -103,7 +103,7 @@ export class CortexView extends ItemView {
 			cls: 'larrys-brain-cortex-section-heading',
 		});
 		section.createEl('div', {
-			text: 'Open a kind’s set view. Right-click to pick which view. Plus creates a member, shuffle opens a random one.',
+			text: 'Open a kind’s set view. Right-click to pick which view. Plus creates a member, up promotes the current note, shuffle opens a random one.',
 			cls: 'larrys-brain-cortex-section-hint',
 		});
 
@@ -138,6 +138,17 @@ export class CortexView extends ItemView {
 				setIcon(create, 'plus');
 				create.addEventListener('click', () =>
 					this.plugin.openCreateObject(kind),
+				);
+
+				// A promote button reshapes the active note into a member of this
+				// kind — one-click, since the button already picks the kind.
+				const promote = row.createEl('button', {
+					cls: 'larrys-brain-cortex-promote',
+					attr: { 'aria-label': `Promote note to ${kind.name}` },
+				});
+				setIcon(promote, 'arrow-up');
+				promote.addEventListener('click', () =>
+					this.plugin.promoteActiveNote(kind),
 				);
 
 				// A shuffle button opens a random member of this kind's set.

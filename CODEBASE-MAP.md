@@ -81,12 +81,14 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                              metadataCache 'changed' keeps its columns synced
                           └─ surfaced via CortexView panel (per-kind: openSetBase,
                              a create button that opens the Create object modal
-                             preset to that kind, or a shuffle button that opens
-                             a random member; a section button opens Define kind).
+                             preset to that kind, a promote button that one-click
+                             promotes the active note to that kind, or a shuffle
+                             button that opens a random member; a section button
+                             opens Define kind).
                              A "Current note" section relates the active note.
 ```
 
-CortexView is now the entry point for Create object and Relate (no longer command-palette commands); Larry write, Remember, and Promote remain commands.
+CortexView is now the entry point for Create object, Relate, and Promote (no longer command-palette commands); Larry write and Remember remain commands. Promote is one-click per kind — the button picks the kind, so there is no longer a PromoteModal.
 
 ### Index freshness (the search invariant)
 

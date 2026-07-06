@@ -194,14 +194,14 @@ If your plugin does not need CSS, delete this file.
 	gap: var(--size-4-1);
 }
 
-/* One kind per row: an open-set button plus create/shuffle buttons beside it. */
+/* One kind per row: an open-set button plus create/promote/shuffle buttons beside it. */
 .larrys-brain-cortex-row {
 	display: flex;
 	gap: var(--size-4-1);
 	align-items: stretch;
 }
 
-/* The open-set button fills the row; create/shuffle sit at its right. */
+/* The open-set button fills the row; create/promote/shuffle sit at its right. */
 .larrys-brain-cortex-item {
 	flex: 1;
 	justify-content: flex-start;
@@ -210,6 +210,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .larrys-brain-cortex-create,
+.larrys-brain-cortex-promote,
 .larrys-brain-cortex-shuffle {
 	flex: 0 0 auto;
 	display: flex;
