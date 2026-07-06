@@ -21,6 +21,12 @@ export interface LarrysBrainSettings {
 	 * the first view.
 	 */
 	preferredSetView: Record<string, string>;
+	/**
+	 * When true, the Points panel shows only **The big picture** and hides the
+	 * legend and today sections — a compact, overview-only mode. Toggled from the
+	 * panel's header, persisted so the choice survives reloads.
+	 */
+	pointsBigPictureOnly: boolean;
 }
 
 export const DEFAULT_SETTINGS: LarrysBrainSettings = {
@@ -29,6 +35,7 @@ export const DEFAULT_SETTINGS: LarrysBrainSettings = {
 	// Seeded with the edges GOAL.md names so the first relate has suggestions.
 	recentEdgeTypes: ['RELATES_TO', 'IDEA_FOR'],
 	preferredSetView: {},
+	pointsBigPictureOnly: false,
 };
 
 export class LarrysBrainSettingTab extends PluginSettingTab {

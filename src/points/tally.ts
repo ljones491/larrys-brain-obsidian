@@ -151,8 +151,9 @@ export interface ForestNode {
  * Arrange the areas into the forest the nested legend renders: roots (areas with
  * no parent among the known areas) first, each area's `UNDER` children nested
  * beneath it. `order` fixes sibling order at every level (the shell passes the
- * ranked area-id list, most points first); ids in `order` that aren't `known`
- * are ignored, and a `known` id missing from `order` still appears, sorted last.
+ * area-id list in the order legend rows should appear, alphabetical by name);
+ * ids in `order` that aren't `known` are ignored, and a `known` id missing from
+ * `order` still appears, sorted last (falling back to its own name).
  *
  * Only ids in `known` are placed, so an edge naming an area that has no note is
  * skipped rather than drawn blank. A DAG area with several parents appears under

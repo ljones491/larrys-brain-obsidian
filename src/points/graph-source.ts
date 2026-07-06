@@ -133,7 +133,7 @@ export async function loadPointGraph(app: App): Promise<PointGraph> {
 	return buildGraph(under, on);
 }
 
-/** An area with its live, derived total — the row a ranked panel renders. */
+/** An area with its live, derived total — one legend row. */
 export interface AreaTotal {
 	file: TFile;
 	/** The note's title, for display and to open the area on click. */
@@ -145,11 +145,12 @@ export interface AreaTotal {
 }
 
 /**
- * The Points panel's whole read in one graph load: every area note ranked by its
- * derived total (most-focused first, ties broken by name for a stable order)
- * *and* the graph those totals came from, so the panel can nest the areas into a
- * forest ({@link buildAreaForest}) without loading the vault a second time. A
- * diamond still counts a point once and a deleted point simply drops out.
+ * The Points panel's whole read in one graph load: every area note with its
+ * derived total, sorted alphabetically by name for a stable order that doesn't
+ * reshuffle (and recolor) the legend every time a point is spent, *and* the graph
+ * those totals came from, so the panel can nest the areas into a forest
+ * ({@link buildAreaForest}) without loading the vault a second time. A diamond
+ * still counts a point once and a deleted point simply drops out.
  */
 export async function loadPointsPanel(
 	app: App,
@@ -164,7 +165,7 @@ export async function loadPointsPanel(
 			childCount: graph.children.get(id)?.size ?? 0,
 		};
 	});
-	totals.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+	totals.sort((a, b) => a.name.localeCompare(b.name));
 	return { totals, graph };
 }
 

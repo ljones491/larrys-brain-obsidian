@@ -25,6 +25,9 @@ export const POINTS_VIEW_TYPE = 'larrys-brain-points-view';
  * mapping each color to its area and total, indented by `UNDER` parentage, where
  * each row spends a point or files a sub-area in one click; and **Today**'s log.
  *
+ * A header toggle collapses the panel to a big-picture-only overview (hiding the
+ * legend and today), persisted in settings so the choice survives reloads.
+ *
  * Totals are derived on the spot from the link graph — no tally is ever stored.
  * The reads are read-only (clicking a name opens its note); the writes (spend,
  * create, file-under) are delegated to the plugin shell. It re-renders on vault
@@ -50,6 +53,9 @@ export class PointsView extends ItemView {
 		return 'target';
 	}
 
+	/** Header toggle; kept so its icon/label can flip when the mode changes. */
+	private modeToggle?: HTMLElement;
+
 	protected async onOpen(): Promise<void> {
 		// Points are spent by creating notes and areas by editing them, so refresh
 		// whenever notes appear, disappear, or their frontmatter changes.
@@ -57,6 +63,17 @@ export class PointsView extends ItemView {
 		this.registerEvent(this.app.vault.on('create', () => void this.render()));
 		this.registerEvent(this.app.vault.on('delete', () => void this.render()));
 		this.registerEvent(this.app.vault.on('rename', () => void this.render()));
+
+		// Header toggle between the full panel and a big-picture-only overview.
+		this.modeToggle = this.addAction('image', 'Big picture only', async () => {
+			this.plugin.settings.pointsBigPictureOnly =
+				!this.plugin.settings.pointsBigPictureOnly;
+			await this.plugin.saveSettings();
+			this.syncModeToggle();
+			await this.render();
+		});
+		this.syncModeToggle();
+
 		await this.render();
 	}
 
@@ -75,7 +92,7 @@ export class PointsView extends ItemView {
 		const known = new Set(order);
 		const forest = buildAreaForest(graph, order, known);
 
-		// One hue per *top-level* area only, spread around the wheel by rank, so the
+		// One hue per *top-level* area only, spread around the wheel by position, so the
 		// palette stays small and readable however deep the tree grows. Every
 		// sub-area inherits its root's hue, so a point rolls up into its top-level
 		// area's color in the big picture and a whole subtree reads as one color;
@@ -92,8 +109,22 @@ export class PointsView extends ItemView {
 
 		this.renderNewArea(container);
 		this.renderBigPicture(container, hueByArea, spent.length === 0);
-		this.renderLegend(container, totals, forest, hueByArea, rootIds);
-		this.renderToday(container);
+		// Big-picture-only mode drops the legend and today's log for a compact overview.
+		if (!this.plugin.settings.pointsBigPictureOnly) {
+			this.renderLegend(container, totals, forest, hueByArea, rootIds);
+			this.renderToday(container);
+		}
+	}
+
+	/** Reflect the current mode in the header toggle's icon and label. */
+	private syncModeToggle(): void {
+		if (!this.modeToggle) {
+			return;
+		}
+		const only = this.plugin.settings.pointsBigPictureOnly;
+		setIcon(this.modeToggle, only ? 'image' : 'panel-top');
+		const label = only ? 'Show all sections' : 'Big picture only';
+		this.modeToggle.setAttribute('aria-label', label);
 	}
 
 	/** The top-level "New area" button — creates a root area (no parent). */
@@ -166,7 +197,7 @@ export class PointsView extends ItemView {
 
 		// Index areas by matching identity so a forest node (keyed by id) finds its
 		// display row. The forest (built once in render) nests areas under their
-		// parents; siblings follow the ranked order of `totals`.
+		// parents; siblings follow the alphabetical order of `totals`.
 		const byId = new Map<string, AreaTotal>();
 		for (const area of totals) {
 			byId.set(normalizeAreaName(area.name), area);
