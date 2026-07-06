@@ -47,6 +47,28 @@ export async function relateToNewThought(
 }
 
 /**
+ * Create a new thought and link *it* back to `subject` — the reverse of
+ * {@link relateToNewThought}. Here the new thought is the subject of the edge:
+ * the edge lands in the new note (`edgeType: [[Subject]]`), reading as an action
+ * from the fresh thought to the note it was captured against. Used by the Cortex
+ * "Related thought" button so the standing note stays untouched and the new
+ * thought carries the link. Returns the new note so the caller can surface it.
+ */
+export async function relateFromNewThought(
+	app: App,
+	subject: TFile,
+	edgeType: string,
+	text: string,
+	meta: DumpNoteMeta,
+): Promise<TFile> {
+	const target = await createDumpNote(app, text, meta);
+	await appendEdge(app, target, normalizeEdgeType(edgeType), subject.basename, {
+		blankLineBefore: true,
+	});
+	return target;
+}
+
+/**
  * Create a new OBJECT instance as the object, then link `subject` to it. Returns
  * the new note so the caller can surface it.
  */

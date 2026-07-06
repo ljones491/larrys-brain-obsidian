@@ -24,11 +24,12 @@ import { recognizeObjectKind } from './object/object-note';
 import { RelateModal, RelateChoice } from './relate/relate-modal';
 import { RelateSearchModal } from './relate/relate-search-modal';
 import {
+	relateFromNewThought,
 	relateToExisting,
 	relateToNewObject,
 	relateToNewThought,
 } from './relate/relate';
-import { normalizeEdgeType } from './edge';
+import { normalizeEdgeType, RELATES_TO_EDGE } from './edge';
 import { CortexView, CORTEX_VIEW_TYPE } from './object/cortex-view';
 
 export default class LarrysBrainPlugin extends Plugin {
@@ -145,6 +146,32 @@ export default class LarrysBrainPlugin extends Plugin {
 			}).catch((err: unknown) => {
 				console.error('Larry write: failed to create note', err);
 				new Notice('Larry write: failed to create note.');
+			});
+		}).open();
+	}
+
+	/**
+	 * Larry write, but linked: capture a new thought and relate it back to the
+	 * note open in the main view. Same zen writing surface as {@link openLarryWrite};
+	 * the only difference is the new thought carries a `RELATES_TO` edge to the note
+	 * that was on screen when the button was clicked, leaving that note untouched.
+	 * Invoked from the Cortex panel's "Current note" section. The subject is
+	 * captured up front so opening the modal (or the new note) can't change which
+	 * note the edge points at.
+	 */
+	writeRelatedThought(): void {
+		const subject = this.app.workspace.getActiveFile();
+		if (!subject) {
+			new Notice('Open a note to relate a thought to it.');
+			return;
+		}
+		new LarryWriteModal(this.app, (text) => {
+			relateFromNewThought(this.app, subject, RELATES_TO_EDGE, text, {
+				tag: this.settings.tag,
+				titleSuffix: this.settings.titleSuffix,
+			}).catch((err: unknown) => {
+				console.error('Larry write: failed to create related thought', err);
+				new Notice('Larry write: failed to create related thought.');
 			});
 		}).open();
 	}

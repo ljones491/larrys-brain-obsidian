@@ -8,6 +8,7 @@ import {
 	writeSetBase,
 } from './object';
 import { listBaseViews } from './object-base';
+import { listThoughtNotes } from '../capture/thought';
 import type { ObjectKindOption } from './object';
 import type LarrysBrainPlugin from '../main';
 
@@ -73,7 +74,46 @@ export class CortexView extends ItemView {
 		container.createEl('h4', { text: "Larry's Brain Cortex" });
 
 		this.renderNoteActions(container);
+		this.renderThoughts(container);
 		this.renderObjectSets(container);
+	}
+
+	/**
+	 * Surface a loose thought. Object sets each get a shuffle button; thoughts are
+	 * unstructured so they have no set view, but the same one-click "show me a
+	 * random one" is useful — this is that button for the whole thought pool.
+	 */
+	private renderThoughts(container: HTMLElement): void {
+		const section = container.createDiv({ cls: 'larrys-brain-cortex-section' });
+		section.createEl('div', {
+			text: 'Thoughts',
+			cls: 'larrys-brain-cortex-section-heading',
+		});
+		section.createEl('div', {
+			text: 'hmm...',
+			cls: 'larrys-brain-cortex-section-hint',
+		});
+
+		const shuffle = section.createEl('button', { cls: 'larrys-brain-cortex-define' });
+		setIcon(shuffle.createSpan({ cls: 'larrys-brain-cortex-define-icon' }), 'shuffle');
+		shuffle.createSpan({ text: 'Random thought' });
+		shuffle.addEventListener('click', () => this.openRandomThought());
+	}
+
+	/** Open a random loose thought in the main view. */
+	private openRandomThought(): void {
+		const pick = pickRandom(listThoughtNotes(this.app, this.plugin.settings.tag));
+		if (!pick) {
+			new Notice('No thoughts yet.');
+			return;
+		}
+		this.app.workspace
+			.getLeaf(false)
+			.openFile(pick)
+			.catch((err: unknown) => {
+				console.error('Cortex: failed to open random thought', err);
+				new Notice('Cortex: failed to open random thought.');
+			});
 	}
 
 	/** Actions on the note currently open in the main view. */
@@ -88,10 +128,25 @@ export class CortexView extends ItemView {
 			cls: 'larrys-brain-cortex-section-hint',
 		});
 
-		const relate = section.createEl('button', { cls: 'larrys-brain-cortex-define' });
+		// Both buttons act on the current note; a wrapping row lets them share a
+		// line when the panel is wide and stack when it's narrow.
+		const actions = section.createDiv({ cls: 'larrys-brain-cortex-actions' });
+
+		const relate = actions.createEl('button', { cls: 'larrys-brain-cortex-define' });
 		setIcon(relate.createSpan({ cls: 'larrys-brain-cortex-define-icon' }), 'link');
 		relate.createSpan({ text: 'Relate note' });
 		relate.addEventListener('click', () => this.plugin.relateActiveNote());
+
+		// Larry write, linked: capture a new thought and relate this note to it.
+		const relatedThought = actions.createEl('button', {
+			cls: 'larrys-brain-cortex-define',
+		});
+		setIcon(
+			relatedThought.createSpan({ cls: 'larrys-brain-cortex-define-icon' }),
+			'pencil',
+		);
+		relatedThought.createSpan({ text: 'Related thought' });
+		relatedThought.addEventListener('click', () => this.plugin.writeRelatedThought());
 	}
 
 	/** A row with an open button (plus create/shuffle) for each defined kind. */
