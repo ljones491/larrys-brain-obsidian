@@ -248,8 +248,8 @@ export function setBasePath(name: string, def: ObjectKindDef): string {
  * Open a kind's set view (`<name>.base`) in the main view. Ensures the file
  * exists first via {@link writeSetBase} — both to create it for kinds defined
  * before set views existed (which have none) and to keep its columns current —
- * then opens it in the active leaf. The action the dockable set-view interface
- * fires for each kind, factored out so the open path stays UI-free and testable.
+ * then opens it in the active leaf. The action the Cortex panel fires for each
+ * kind, factored out so the open path stays UI-free and testable.
  *
  * When `view` is given, opens to that named Bases view via the `#View` subpath
  * (a base opened plainly always shows its first view); omit it for the default

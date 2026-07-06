@@ -23,7 +23,7 @@ src/
   memory-note.ts          # #search / dump note contents + recognition
   capture/                # Larry Write: modal, note creation, title generation (compromise)
   remember/               # Remember: search-index, memory-web, search, modals
-  object/                 # Objects/Sets: kinds, instances, promote, .base files, set panel
+  object/                 # Objects/Sets: kinds, instances, promote, .base files, Cortex panel
   relate/                 # Relate: edge-type modal + relevance note picker
   utils/notes.ts          # createUniqueNote, sanitize, stamps, suffix strip
 ```
@@ -79,7 +79,7 @@ raw text ──Larry Write──▶ dump note (#thought, title via compromise, d
                     strip " - hmm" suffix, rename keeping backlinks)
                           └─ belongs to a Set ◀── Define kind writes sets/<name>.base;
                              metadataCache 'changed' keeps its columns synced
-                          └─ surfaced via SetView panel / openSetBase
+                          └─ surfaced via CortexView panel / openSetBase
 ```
 
 ### Index freshness (the search invariant)
@@ -107,4 +107,4 @@ No god objects (largest is `search-index.ts`, ~360 lines, cohesive), no empty ca
 
 ## Not yet traced
 
-Modal UI internals (`*-modal.ts` DOM/styling — data flow through them is confirmed), `object/set-view.ts` panel rendering details, and the `object-base` / Bases `.base` file format.
+Modal UI internals (`*-modal.ts` DOM/styling — data flow through them is confirmed), `object/cortex-view.ts` panel rendering details, and the `object-base` / Bases `.base` file format.

@@ -163,19 +163,19 @@ If your plugin does not need CSS, delete this file.
 	margin-bottom: var(--size-4-3);
 }
 
-/* Dockable panel listing each object kind's set view. */
-.larrys-brain-set-view-empty {
+/* Larry's Brain Cortex: the control-center panel listing each object kind's set view. */
+.larrys-brain-cortex-empty {
 	color: var(--text-faint);
 }
 
-.larrys-brain-set-view-list {
+.larrys-brain-cortex-list {
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-4-1);
 }
 
 /* One kind per row: a full-width, left-aligned button that opens its base. */
-.larrys-brain-set-view-item {
+.larrys-brain-cortex-item {
 	width: 100%;
 	justify-content: flex-start;
 	text-align: left;

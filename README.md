@@ -59,9 +59,9 @@ Memory web.
 
 Larry write notes about things. Larry group things into sets of things. Larry sleep well at night knowing sets exist.
 
-#### Object Sets Panel
+#### Larry's Brain Cortex
 
-Command: `Larry's Brain: Open Object Sets`.
+The plugin's control center panel. Command: `Larry's Brain: Open cortex`.
 
 - Open panel to see list of object sets
 - Click one to see list of objects

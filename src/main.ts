@@ -31,7 +31,7 @@ import {
 	relateToNewThought,
 } from './relate/relate';
 import { normalizeEdgeType } from './edge';
-import { SetView, SET_VIEW_TYPE } from './object/set-view';
+import { CortexView, CORTEX_VIEW_TYPE } from './object/cortex-view';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
@@ -92,17 +92,19 @@ export default class LarrysBrainPlugin extends Plugin {
 			}),
 		);
 
-		// Dockable panel listing each kind's set, with a button to open its base
-		// in the main view. Registered as a view, surfaced via a ribbon icon and a
-		// command that reveals it in the right sidebar.
-		this.registerView(SET_VIEW_TYPE, (leaf) => new SetView(leaf, this));
-		this.addRibbonIcon('box', 'Open object sets', () => {
-			void this.activateSetView();
+		// Larry's Brain Cortex: the plugin's control center, a dockable panel that
+		// currently lists each kind's set with a button to open its base in the main
+		// view. Registered as a view, surfaced via a ribbon icon and a command that
+		// reveals it in the right sidebar.
+		this.registerView(CORTEX_VIEW_TYPE, (leaf) => new CortexView(leaf, this));
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- "Larry's Brain Cortex" is a proper name
+		this.addRibbonIcon('box', "Open Larry's Brain Cortex", () => {
+			void this.activateCortex();
 		});
 		this.addCommand({
 			id: 'open-object-sets',
-			name: 'Open object sets',
-			callback: () => void this.activateSetView(),
+			name: 'Open cortex',
+			callback: () => void this.activateCortex(),
 		});
 
 		this.addCommand({
@@ -174,15 +176,15 @@ export default class LarrysBrainPlugin extends Plugin {
 	}
 
 	/**
-	 * Reveal the dockable set-view panel in the right sidebar, reusing an existing
-	 * leaf if one is already open so repeated activations don't stack panels.
+	 * Reveal the Cortex panel in the right sidebar, reusing an existing leaf if one
+	 * is already open so repeated activations don't stack panels.
 	 */
-	private async activateSetView(): Promise<void> {
+	private async activateCortex(): Promise<void> {
 		const { workspace } = this.app;
-		let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(SET_VIEW_TYPE)[0] ?? null;
+		let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(CORTEX_VIEW_TYPE)[0] ?? null;
 		if (!leaf) {
 			leaf = workspace.getRightLeaf(false);
-			await leaf?.setViewState({ type: SET_VIEW_TYPE, active: true });
+			await leaf?.setViewState({ type: CORTEX_VIEW_TYPE, active: true });
 		}
 		if (leaf) {
 			await workspace.revealLeaf(leaf);
