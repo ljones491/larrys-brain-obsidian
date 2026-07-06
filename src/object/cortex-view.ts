@@ -1,5 +1,12 @@
-import { ItemView, Menu, Notice, TFile, WorkspaceLeaf } from 'obsidian';
-import { listObjectKinds, openSetBase, setBasePath, writeSetBase } from './object';
+import { ItemView, Menu, Notice, setIcon, TFile, WorkspaceLeaf } from 'obsidian';
+import {
+	listObjectKinds,
+	listObjects,
+	openSetBase,
+	pickRandom,
+	setBasePath,
+	writeSetBase,
+} from './object';
 import { listBaseViews } from './object-base';
 import type { ObjectKindOption } from './object';
 import type LarrysBrainPlugin from '../main';
@@ -16,7 +23,8 @@ export const CORTEX_VIEW_TYPE = 'larrys-brain-set-view';
  * Today it lists every OBJECT kind, each with a button that opens its set view
  * (`<name>.base`) in the main view — the "a button I can click to open the base"
  * idea in .dev/GOAL.md. Saves having to remember the base's folder/filename and
- * reach for the quick switcher.
+ * reach for the quick switcher. Each kind also gets a shuffle button that opens
+ * a random member of its set in the main view.
  *
  * The panel is the UI shell; the open action itself is {@link openSetBase}, and
  * the kinds come from {@link listObjectKinds}. It re-renders when kinds change so
@@ -68,7 +76,7 @@ export class CortexView extends ItemView {
 			cls: 'larrys-brain-cortex-section-heading',
 		});
 		section.createEl('div', {
-			text: 'Open a kind’s set view. Right-click to pick which view.',
+			text: 'Open a kind’s set view. Right-click to pick which view. Shuffle opens a random member.',
 			cls: 'larrys-brain-cortex-section-hint',
 		});
 
@@ -83,7 +91,9 @@ export class CortexView extends ItemView {
 
 		const list = section.createDiv({ cls: 'larrys-brain-cortex-list' });
 		for (const kind of kinds) {
-			const button = list.createEl('button', {
+			const row = list.createDiv({ cls: 'larrys-brain-cortex-row' });
+
+			const button = row.createEl('button', {
 				text: kind.name,
 				cls: 'larrys-brain-cortex-item',
 			});
@@ -94,7 +104,31 @@ export class CortexView extends ItemView {
 				evt.preventDefault();
 				void this.showViewMenu(evt, kind);
 			});
+
+			// A shuffle button opens a random member of this kind's set.
+			const shuffle = row.createEl('button', {
+				cls: 'larrys-brain-cortex-shuffle',
+				attr: { 'aria-label': `Shuffle ${kind.name}` },
+			});
+			setIcon(shuffle, 'shuffle');
+			shuffle.addEventListener('click', () => this.openRandom(kind));
 		}
+	}
+
+	/** Open a random member of the kind's set in the main view. */
+	private openRandom(kind: ObjectKindOption): void {
+		const pick = pickRandom(listObjects(this.app, kind));
+		if (!pick) {
+			new Notice(`No ${kind.name} objects yet.`);
+			return;
+		}
+		this.app.workspace
+			.getLeaf(false)
+			.openFile(pick.file)
+			.catch((err: unknown) => {
+				console.error('Cortex: failed to open random object', err);
+				new Notice('Cortex: failed to open random object.');
+			});
 	}
 
 	/** Open a kind's set to its stored preferred view (or the first view). */
