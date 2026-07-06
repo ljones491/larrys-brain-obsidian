@@ -131,12 +131,15 @@ export interface AreaTotal {
 }
 
 /**
- * Every area note with its derived total, ranked most-focused first (ties broken
- * by name so the order is stable). The Points panel renders this as its colored
- * squares and legend. Totals come from one graph load, so a diamond still counts
- * a point once and a deleted point simply drops out.
+ * The Points panel's whole read in one graph load: every area note ranked by its
+ * derived total (most-focused first, ties broken by name for a stable order)
+ * *and* the graph those totals came from, so the panel can nest the areas into a
+ * forest ({@link buildAreaForest}) without loading the vault a second time. A
+ * diamond still counts a point once and a deleted point simply drops out.
  */
-export async function loadAreaTotals(app: App): Promise<AreaTotal[]> {
+export async function loadPointsPanel(
+	app: App,
+): Promise<{ totals: AreaTotal[]; graph: PointGraph }> {
 	const graph = await loadPointGraph(app);
 	const totals = listAreas(app).map(({ file, name }) => {
 		const id = normalizeAreaName(name);
@@ -148,7 +151,7 @@ export async function loadAreaTotals(app: App): Promise<AreaTotal[]> {
 		};
 	});
 	totals.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
-	return totals;
+	return { totals, graph };
 }
 
 /** A single point event: the note, the area it landed on, and when. */

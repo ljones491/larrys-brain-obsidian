@@ -109,37 +109,44 @@ Pure core:
 - `points/note.ts` — the area/point note schema (frontmatter + tags + the point's baked-in `ON` edge) and tag recognizers, pure like `memory-note.ts`.
 - `edge.ts` `parseEdgeTargets(text, type)` — pure inverse of `buildEdgeLine`; reads edge targets back out of a note *body* (edges aren't in frontmatter, so the link cache can't type them). This is what lets the graph be assembled from text.
 
-Vertical slice — **spend a point** (command → note web):
+The **Points panel** (`points/points-view.ts`) is the single front door — it both *shows* focus and is where you spend points and parent areas. There is no separate spend command/modal; the `target` ribbon / "Open points" command opens the panel, and its legend rows do the writing.
+
+Vertical slice — **spend / create / parent** (panel row → note web). The view is read-only over the graph; the *writes* are delegated to `main.ts` shell methods, which open a modal where needed and call `PointsBook`:
 
 ```
-Ribbon "plus-circle" / command "Spend a point" (main.ts)
-  → SpendAreaModal (FuzzySuggest over listAreas + "+ new area…")   [points/spend-area-modal.ts]
-  → PointsBook.spendPoint(name)                                     [points/points.ts]
-      ├─ resolveArea: match by normalizeAreaName over listAreas, else createUniqueNote in points/
-      ├─ createPointNote: createUniqueNote in larrys-meta/points/, ON edge baked in
-      └─ loadPointGraph(app) → tallyFor(graph, area)                [points/graph-source.ts]
-  → Notice "+1 on Dishes · 14 total" (and "Created new area …" when new)
+PointsView legend row (points/points-view.ts)
+  ├─ "+point"    → plugin.spendPointOnArea(name)                    [main.ts]
+  │      → PointsBook.spendPoint(name)                              [points/points.ts]
+  │          ├─ resolveArea: match by normalizeAreaName, else createUniqueNote in points/
+  │          ├─ createPointNote: createUniqueNote in larrys-meta/points/, ON edge baked in
+  │          └─ loadPointGraph → tallyFor(graph, area) → Notice "+1 on Dishes · 14 total"
+  ├─ "+ sub-area" → plugin.addSubArea(parentName)                   [main.ts]
+  │      → AreaNameModal → PointsBook.addSubArea(parent, child)     [points/area-name-modal.ts]
+  │          ├─ resolveArea(child)  (match or create)
+  │          ├─ wouldCreateCycle(graph, child, parent) → throw PointsCycleError (refused + reported)
+  │          └─ appendEdge(child, UNDER, parent)  → child's points roll up into parent
+  └─ "New area" (top button) → plugin.createNewArea()               [main.ts]
+         → AreaNameModal → PointsBook.createTopLevelArea(name)  (no edge)
 ```
 
-`points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) parses `UNDER`/`ON` from note bodies into the tally arrays; `listAreas`/`loadPointGraph` (App) gather notes by tag and read bodies via `cachedRead`. Spend writes no `appendEdge` — the point's `ON` edge is part of the note's initial contents — so the `appendEdge` race doesn't touch this path.
+`points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) parses `UNDER`/`ON` from note bodies into the tally arrays; `listAreas`/`loadPointGraph` (App) gather notes by tag and read bodies via `cachedRead`. Spend writes no `appendEdge` (the point's `ON` edge is baked into initial contents); **`+ sub-area` is the one path that appends an edge** — the low-frequency `UNDER` write, cycle-guarded by `wouldCreateCycle` (a pure `descendants`-based check in `tally.ts`). The `appendEdge` read-modify-write race is left as a tracked follow-up — parenting is one-at-a-time, so it doesn't bite here.
 
-Vertical slice — **view focus** (Journey #2, read-only over the same graph):
+Vertical slice — **view focus** (read-only over the same graph):
 
 ```
-Ribbon "target" / command "Open points" (main.ts) → activatePoints (right sidebar)
-  → PointsView (dockable, sibling of Cortex)                       [points/points-view.ts]
-      ├─ listPoints(app) → one equal square per point, oldest→newest
-      │     (hue per area, keyed off the legend's rank; click opens the point)
-      ├─ loadAreaTotals(app) → ranked legend: swatch + area + total [points/graph-source.ts]
-      │     (same hue as that area's squares; click opens the area note)
-      └─ listTodaysPoints(app, makeDateStamp()) → today's log       [points/graph-source.ts]
-            (points stamped today, newest first)
+PointsView.render (one loadPointsPanel(app) → { totals, graph })   [points/graph-source.ts]
+  ├─ "New area" button (top)
+  ├─ listPoints(app) → one equal square per point, oldest→newest   (hue per area by rank; click opens the point)
+  ├─ nested legend: buildAreaForest(graph, rankedIds)              [points/tally.ts, pure + tested]
+  │     each row = swatch + area + total, indented by UNDER depth, with +point / +sub-area buttons
+  │     (click name opens the area note; shows *all* areas, incl. zero-total, so a new area is spendable)
+  └─ listTodaysPoints(app, makeDateStamp()) → today's log          (points stamped today, newest first)
   → re-renders on vault create/delete/rename + metadataCache changed
 ```
 
-`listPoints` is the primitive: every point note, oldest first, with its area link and `date` read straight from the metadata cache (no body reads); `listTodaysPoints` is a filtered/reversed view of it. The squares are one-per-point and equal-size — a chronological focus line, colored by area — while `loadAreaTotals` supplies the ranked legend (each area by its derived `tallyFor`) that fixes the per-area hue. The panel is pure read — no writes, no `appendEdge`.
+`buildAreaForest` (pure, in `tally.ts`) nests areas under their `UNDER` parents, siblings ordered by the ranked total list, and is diamond/cycle-safe (per-path visited set). `loadPointsPanel` does one graph load per render, feeding both the totals (hues + display) and the forest. The panel's *reads* are pure; its *writes* go through the shell methods above.
 
-Still to build: in-note area dashboards, `UNDER` parenting/relate affordances (Journey #3, where `appendEdge` *is* used), and the `appendEdge` → `Vault.process` migration GOAL.md folds into that work.
+Still to build (deferred): in-note area dashboards, a "relate" cross-link affordance on area/point notes (Journey #3), re-parenting an *existing* area (only new/typed sub-areas today), and the `appendEdge` → `Vault.process` migration.
 
 ## Risks
 

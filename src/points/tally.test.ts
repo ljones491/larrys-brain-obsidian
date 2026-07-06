@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	buildAreaForest,
 	buildGraph,
 	descendants,
 	tallyAll,
 	tallyFor,
+	wouldCreateCycle,
+	type ForestNode,
 	type OnEdge,
 	type UnderEdge,
 } from './tally';
@@ -133,5 +136,108 @@ describe('tallyAll', () => {
 				['chores', 1],
 			]),
 		);
+	});
+});
+
+describe('wouldCreateCycle', () => {
+	it('refuses filing an area under itself', () => {
+		const g = graph([], []);
+		expect(wouldCreateCycle(g, 'dishes', 'dishes')).toBe(true);
+	});
+
+	it('refuses filing an ancestor under its own descendant', () => {
+		// chores → kitchen → dishes; putting chores UNDER dishes closes the loop.
+		const g = graph(
+			[
+				['kitchen', 'chores'],
+				['dishes', 'kitchen'],
+			],
+			[],
+		);
+		expect(wouldCreateCycle(g, 'chores', 'dishes')).toBe(true);
+	});
+
+	it('allows an unrelated new parent', () => {
+		const g = graph([['dishes', 'kitchen']], []);
+		expect(wouldCreateCycle(g, 'dishes', 'chores')).toBe(false);
+	});
+});
+
+describe('buildAreaForest', () => {
+	/** Flatten to `id` tuples so the shape is easy to assert on. */
+	const shape = (nodes: ForestNode[]): unknown =>
+		nodes.map((n) => [n.id, shape(n.children)]);
+
+	it('nests children under their parent, roots first', () => {
+		const g = graph(
+			[
+				['dishes', 'chores'],
+				['pots', 'dishes'],
+			],
+			[],
+		);
+		const forest = buildAreaForest(g, ['chores', 'dishes', 'pots']);
+		expect(shape(forest)).toEqual([
+			['chores', [['dishes', [['pots', []]]]]],
+		]);
+	});
+
+	it('orders siblings by the given rank', () => {
+		const g = graph(
+			[
+				['b', 'top'],
+				['a', 'top'],
+			],
+			[],
+		);
+		// `a` outranks `b` even though it was declared second.
+		const forest = buildAreaForest(g, ['top', 'a', 'b']);
+		expect(shape(forest)).toEqual([
+			['top', [['a', []], ['b', []]]],
+		]);
+	});
+
+	it('shows a diamond child under each of its parents', () => {
+		const g = graph(
+			[
+				['work', 'top'],
+				['home', 'top'],
+				['shared', 'work'],
+				['shared', 'home'],
+			],
+			[],
+		);
+		const forest = buildAreaForest(g, ['top', 'work', 'home', 'shared']);
+		expect(shape(forest)).toEqual([
+			[
+				'top',
+				[
+					['work', [['shared', []]]],
+					['home', [['shared', []]]],
+				],
+			],
+		]);
+	});
+
+	it('terminates on a cycle instead of recursing forever', () => {
+		const g = graph(
+			[
+				['a', 'b'],
+				['b', 'a'],
+			],
+			[],
+		);
+		// Both are children of each other, so neither is a root; nothing to render
+		// rather than an infinite tree.
+		expect(shape(buildAreaForest(g, ['a', 'b']))).toEqual([]);
+	});
+
+	it('places only known areas, skipping edges to note-less areas', () => {
+		const g = graph([['dishes', 'ghost']], []);
+		const known = new Set(['dishes']);
+		// `ghost` has no note, so `dishes` is treated as a root.
+		expect(shape(buildAreaForest(g, ['dishes'], known))).toEqual([
+			['dishes', []],
+		]);
 	});
 });

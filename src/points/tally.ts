@@ -126,3 +126,76 @@ export function tallyAll(graph: PointGraph): Map<AreaId, number> {
 	}
 	return totals;
 }
+
+/**
+ * Whether filing `child` `UNDER` `parent` would make an area its own ancestor —
+ * the edge the organize path must refuse rather than write (GOAL Journey #3). A
+ * self-edge is a trivial cycle; otherwise the edge closes a loop exactly when
+ * `parent` already sits *below* `child`, i.e. is reachable downward from it.
+ */
+export function wouldCreateCycle(
+	graph: PointGraph,
+	child: AreaId,
+	parent: AreaId,
+): boolean {
+	return child === parent || descendants(graph, child).has(parent);
+}
+
+/** One area node in the nested legend: its id and its child subtrees. */
+export interface ForestNode {
+	id: AreaId;
+	children: ForestNode[];
+}
+
+/**
+ * Arrange the areas into the forest the nested legend renders: roots (areas with
+ * no parent among the known areas) first, each area's `UNDER` children nested
+ * beneath it. `order` fixes sibling order at every level (the shell passes the
+ * ranked area-id list, most points first); ids in `order` that aren't `known`
+ * are ignored, and a `known` id missing from `order` still appears, sorted last.
+ *
+ * Only ids in `known` are placed, so an edge naming an area that has no note is
+ * skipped rather than drawn blank. A DAG area with several parents appears under
+ * each. Cycle-safe: a per-path `visited` set stops a stray `A UNDER B, B UNDER A`
+ * loop from recursing forever and keeps a node from nesting under itself.
+ */
+export function buildAreaForest(
+	graph: PointGraph,
+	order: AreaId[],
+	known: Set<AreaId> = graph.areas,
+): ForestNode[] {
+	const rank = new Map<AreaId, number>();
+	order.forEach((id, i) => rank.set(id, i));
+	const byRank = (a: AreaId, b: AreaId): number =>
+		(rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) || a.localeCompare(b);
+
+	// An area is a root unless some known area lists it as an `UNDER` child.
+	const hasParent = new Set<AreaId>();
+	for (const [parent, children] of graph.children) {
+		if (!known.has(parent)) {
+			continue;
+		}
+		for (const child of children) {
+			if (known.has(child)) {
+				hasParent.add(child);
+			}
+		}
+	}
+
+	const build = (id: AreaId, visited: Set<AreaId>): ForestNode => {
+		const childIds = [...(graph.children.get(id) ?? [])]
+			.filter((c) => known.has(c) && !visited.has(c))
+			.sort(byRank);
+		return {
+			id,
+			children: childIds.map((c) =>
+				build(c, new Set(visited).add(c)),
+			),
+		};
+	};
+
+	return [...known]
+		.filter((id) => !hasParent.has(id))
+		.sort(byRank)
+		.map((id) => build(id, new Set([id])));
+}

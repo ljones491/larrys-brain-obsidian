@@ -320,20 +320,44 @@ If your plugin does not need CSS, delete this file.
 	filter: brightness(1.35);
 }
 
-/* Ranked legend: swatch, name, total, and any child-area count per row. */
+/* "New area" button: a full-width action above the panel, like Cortex's define. */
+.larrys-brain-points-new-area {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.larrys-brain-points-new-area-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+/* Nested legend: swatch, name, total, and the spend / sub-area actions per row.
+   Rows indent by their `--points-depth` so `UNDER` parentage reads at a glance. */
 .larrys-brain-points-legend {
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-4-1);
+	/* Rows sit flush; the hover background is enough to separate them. */
+	gap: 0;
 }
 
 .larrys-brain-points-legend-row {
 	display: flex;
 	align-items: center;
 	gap: var(--size-4-2);
-	padding: var(--size-4-1) var(--size-4-1);
+	/* Tight vertical padding keeps rows dense; the row height is set by the text
+	   and icons, not by padding. */
+	padding: var(--size-2-1) var(--size-4-1);
+	/* Each level of `UNDER` nesting steps the row right by one indent unit. */
+	padding-left: calc(
+		var(--size-4-1) + var(--points-depth, 0) * var(--size-4-3)
+	);
 	border-radius: var(--radius-s);
-	cursor: pointer;
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-tight);
 }
 
 .larrys-brain-points-legend-row:hover {
@@ -349,11 +373,12 @@ If your plugin does not need CSS, delete this file.
 }
 
 .larrys-brain-points-legend-name {
-	flex: 0 1 auto;
+	flex: 1 1 auto;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-weight: var(--font-semibold);
+	cursor: pointer;
 }
 
 .larrys-brain-points-legend-total {
@@ -362,13 +387,46 @@ If your plugin does not need CSS, delete this file.
 	font-variant-numeric: tabular-nums;
 }
 
-/* Child-area count, pushed to the right and quieted like the CLI's note. */
-.larrys-brain-points-legend-children {
-	flex: 1;
-	text-align: right;
-	color: var(--text-faint);
-	font-size: var(--font-ui-smaller);
-	white-space: nowrap;
+/* The per-row actions: spend a point, or file a sub-area. Small icon buttons,
+   kept quiet (muted, transparent) so the legend reads as a list first, but always
+   visible and tappable — the panel runs on mobile, where there is no hover. */
+.larrys-brain-points-legend-actions {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--size-2-1);
+}
+
+/* Compact square icon buttons: small glyphs, no default button chrome or
+   min-height, so they don't inflate the row. Kept quiet (muted, transparent) so
+   the legend reads as a list first, but always visible and tappable — the panel
+   runs on mobile, where there is no hover. */
+.larrys-brain-points-spend,
+.larrys-brain-points-subarea {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-6);
+	height: var(--size-4-6);
+	min-height: 0;
+	padding: 0;
+	color: var(--text-muted);
+	background: transparent;
+	box-shadow: none;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+}
+
+.larrys-brain-points-spend svg,
+.larrys-brain-points-subarea svg {
+	width: var(--size-4-4);
+	height: var(--size-4-4);
+}
+
+.larrys-brain-points-spend:hover,
+.larrys-brain-points-subarea:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
 }
 
 /* Today's log: time, then the area the point landed on. */
