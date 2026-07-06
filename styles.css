@@ -232,3 +232,20 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	align-items: center;
 }
+
+/* A group of buttons acting on the current note: they share a line when the
+   panel is wide enough and wrap to stack when it's narrow. */
+.larrys-brain-cortex-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-2);
+}
+
+/* Inside the group each button grows to share the line; the group owns the top
+   margin, so the buttons drop their own to stay aligned on a shared row. */
+.larrys-brain-cortex-actions .larrys-brain-cortex-define {
+	flex: 1 1 auto;
+	justify-content: center;
+	margin-top: 0;
+}

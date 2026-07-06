@@ -90,7 +90,7 @@ export class CortexView extends ItemView {
 			cls: 'larrys-brain-cortex-section-heading',
 		});
 		section.createEl('div', {
-			text: 'Surface a random loose thought — one you haven’t promoted into an object.',
+			text: 'hmm...',
 			cls: 'larrys-brain-cortex-section-hint',
 		});
 
@@ -128,10 +128,25 @@ export class CortexView extends ItemView {
 			cls: 'larrys-brain-cortex-section-hint',
 		});
 
-		const relate = section.createEl('button', { cls: 'larrys-brain-cortex-define' });
+		// Both buttons act on the current note; a wrapping row lets them share a
+		// line when the panel is wide and stack when it's narrow.
+		const actions = section.createDiv({ cls: 'larrys-brain-cortex-actions' });
+
+		const relate = actions.createEl('button', { cls: 'larrys-brain-cortex-define' });
 		setIcon(relate.createSpan({ cls: 'larrys-brain-cortex-define-icon' }), 'link');
 		relate.createSpan({ text: 'Relate note' });
 		relate.addEventListener('click', () => this.plugin.relateActiveNote());
+
+		// Larry write, linked: capture a new thought and relate this note to it.
+		const relatedThought = actions.createEl('button', {
+			cls: 'larrys-brain-cortex-define',
+		});
+		setIcon(
+			relatedThought.createSpan({ cls: 'larrys-brain-cortex-define-icon' }),
+			'pencil',
+		);
+		relatedThought.createSpan({ text: 'Related thought' });
+		relatedThought.addEventListener('click', () => this.plugin.writeRelatedThought());
 	}
 
 	/** A row with an open button (plus create/shuffle) for each defined kind. */

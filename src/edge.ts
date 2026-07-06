@@ -22,6 +22,13 @@ export const FOUND_EDGE = 'FOUND';
 export const LINKS_EDGE = 'LINKS';
 
 /**
+ * Default edge for a note related to a thought captured on its behalf (the
+ * Cortex "Related thought" button). Matches the Relate modal's default so a
+ * one-click related thought reads the same as one made through Relate → thought.
+ */
+export const RELATES_TO_EDGE = 'RELATES_TO';
+
+/**
  * Normalize a free-text edge name to the convention edges are written in:
  * upper snake case (`FOUND`, `RELATES_TO`, `IDEA_FOR`). Spaces and hyphens
  * become underscores; anything that isn't a letter, digit, or underscore is
