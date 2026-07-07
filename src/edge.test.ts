@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { App, TFile } from 'obsidian';
-import { appendEdge, buildEdgeLine, normalizeEdgeType } from './edge';
+import {
+	appendEdge,
+	buildEdgeLine,
+	normalizeEdgeType,
+	parseEdgeTargets,
+} from './edge';
 
 describe('normalizeEdgeType', () => {
 	it('upper-snake-cases free text', () => {
@@ -31,6 +36,43 @@ describe('buildEdgeLine', () => {
 		expect(buildEdgeLine('RELATES_TO', 'My Note')).toBe(
 			'RELATES_TO: [[My Note]]',
 		);
+	});
+});
+
+describe('parseEdgeTargets', () => {
+	it('reads back the targets of a given edge type, ignoring others', () => {
+		const text = [
+			'---',
+			'tags:',
+			'  - points/point',
+			'---',
+			'ON: [[Dishes]]',
+			'RELATES_TO: [[Some thought]]',
+			'ON: [[Kitchen]]',
+		].join('\n');
+		expect(parseEdgeTargets(text, 'ON')).toEqual(['Dishes', 'Kitchen']);
+	});
+
+	it('is round-trip with buildEdgeLine', () => {
+		const line = buildEdgeLine('UNDER', 'Chores');
+		expect(parseEdgeTargets(line, 'UNDER')).toEqual(['Chores']);
+	});
+
+	it('strips a display alias down to the linked note', () => {
+		expect(parseEdgeTargets('ON: [[Dishes|the dishes]]', 'ON')).toEqual([
+			'Dishes',
+		]);
+	});
+
+	it('tolerates leading whitespace but not a link buried in prose', () => {
+		expect(parseEdgeTargets('  ON: [[Dishes]]', 'ON')).toEqual(['Dishes']);
+		expect(parseEdgeTargets('a point about ON: [[Dishes]] today', 'ON')).toEqual(
+			[],
+		);
+	});
+
+	it('returns nothing when the type is absent', () => {
+		expect(parseEdgeTargets('LINKS: [[Other]]', 'ON')).toEqual([]);
 	});
 });
 

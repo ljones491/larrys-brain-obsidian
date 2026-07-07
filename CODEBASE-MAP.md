@@ -25,6 +25,7 @@ src/
   remember/               # Remember: search-index, memory-web, search, modals
   object/                 # Objects/Sets: kinds, instances, promote, .base files, Cortex panel
   relate/                 # Relate: edge-type modal + relevance note picker
+  points/                 # Points (in progress): system-owned area/point notes
   utils/notes.ts          # createUniqueNote, sanitize, stamps, suffix strip
 ```
 
@@ -96,6 +97,57 @@ CortexView is now the entry point for Create object, Relate, and Promote (no lon
 ### Index freshness (the search invariant)
 
 `main.ts` wires `create/modify/delete/rename` → `index.onModify/onDelete`. On load, `restore()` (snapshot) → `reconcile()` (drop deleted, re-read mtime-changed) or `rebuild()` (scan all). Every mutation path awaits `build()` first so an early event can't race the initial load; the build is deferred to `onLayoutReady` and memoized; `onunload` flushes pending writes. The most carefully engineered part of the codebase.
+
+### Points (in progress — spend + view panel shipped)
+
+Subsumes the standalone Points CLI (see `GOAL.md`): "spend a point" to log where focus goes, tallied by rolling `ON`-points up an `UNDER` hierarchy of areas. A *system-owned* note kind — **not** an Object/Set — riding `edge.ts` directly.
+
+Pure core:
+
+- `points/constants.ts` — owns the literals: `#points/area` / `#points/point` tags, `UNDER` / `ON` edge types, folders, and `normalizeAreaName` (case/whitespace-folded matching key). **Layout call:** point events live under `larrys-meta/points/` (excluded from search by `isInMetaFolder`); area hubs live in a searchable `points/` folder. GOAL.md's prose files both under the meta tree, but that conflicts with its stronger "keep area notes searchable" rule, so areas sit outside it — no `search-index.ts` change needed.
+- `points/tally.ts` — the tally walk, pure and unit-tested. `buildGraph(under, on)` indexes edges; `tallyFor`/`tallyAll` count distinct points `ON` an area or any descendant reachable *downward* through `UNDER`. Diamond-safe (dedupe by point id) and cycle-safe (visited set). Tallies are derived, never stored.
+- `points/note.ts` — the area/point note schema (frontmatter + tags + the point's baked-in `ON` edge) and tag recognizers, pure like `memory-note.ts`.
+- `edge.ts` `parseEdgeTargets(text, type)` — pure inverse of `buildEdgeLine`; reads edge targets back out of a note *body* (edges aren't in frontmatter, so the link cache can't type them). This is what lets the graph be assembled from text.
+
+The **Points panel** (`points/points-view.ts`) is the single front door — it both *shows* focus and is where you spend points and parent areas. There is no separate spend command/modal; the `target` ribbon / "Open points" command opens the panel, and its legend rows do the writing.
+
+Vertical slice — **spend / create / parent** (panel row → note web). The view is read-only over the graph; the *writes* are delegated to `main.ts` shell methods, which open a modal where needed and call `PointsBook`:
+
+```
+PointsView legend row (points/points-view.ts)
+  ├─ "+point"    → plugin.spendPointOnArea(name)                    [main.ts]
+  │      → PointsBook.spendPoint(name)                              [points/points.ts]
+  │          ├─ resolveArea: match by normalizeAreaName, else createUniqueNote in points/
+  │          ├─ createPointNote: createUniqueNote in larrys-meta/points/, ON edge baked in
+  │          └─ loadPointGraph → tallyFor(graph, area) → Notice "+1 on Dishes · 14 total"
+  ├─ "+ sub-area" → plugin.addSubArea(parentName)                   [main.ts]
+  │      → AreaNameModal → PointsBook.addSubArea(parent, child)     [points/area-name-modal.ts]
+  │          ├─ resolveArea(child)  (match or create)
+  │          ├─ wouldCreateCycle(graph, child, parent) → throw PointsCycleError (refused + reported)
+  │          └─ appendEdge(child, UNDER, parent)  → child's points roll up into parent
+  └─ "New area" (top button) → plugin.createNewArea()               [main.ts]
+         → AreaNameModal → PointsBook.createTopLevelArea(name)  (no edge)
+```
+
+`points/graph-source.ts` is the vault→graph seam: `toEdges` (pure) assembles the tally arrays — `UNDER` edges parsed from area *bodies*, `ON` edges from a point's already-extracted area link; `listAreas`/`loadPointGraph` (App) gather notes by tag, reading area bodies via `cachedRead` but taking each point's single `ON` target straight from the metadata cache link list (`pointAreaLink`, shared with `listPoints`) — **no per-point body read**, so a render stays cheap as points accumulate. Areas still need body parsing because they can carry links of several types (`UNDER` and, later, relate) that the cache can't tell apart; a point has exactly one link, so no disambiguation is needed. Spend writes no `appendEdge` (the point's `ON` edge is baked into initial contents); **`+ sub-area` is the one path that appends an edge** — the low-frequency `UNDER` write, cycle-guarded by `wouldCreateCycle` (a pure `descendants`-based check in `tally.ts`). The `appendEdge` read-modify-write race is left as a tracked follow-up — parenting is one-at-a-time, so it doesn't bite here.
+
+Vertical slice — **view focus** (read-only over the same graph):
+
+```
+PointsView.render (one loadPointsPanel(app) → { totals, graph })   [points/graph-source.ts]
+  ├─ "New area" button (top)
+  ├─ listPoints(app) → one equal square per point, oldest→newest   (hue per *top-level* area; sub-areas inherit their root's color; click opens the point)
+  ├─ nested legend: buildAreaForest(graph, rankedIds)              [points/tally.ts, pure + tested]
+  │     each row = swatch + area + total, indented by UNDER depth, with +point / +sub-area buttons
+  │     (only top-level rows carry a colored swatch; sub-area rows reserve the space but stay uncolored)
+  │     (click name opens the area note; shows *all* areas, incl. zero-total, so a new area is spendable)
+  └─ listTodaysPoints(app, makeDateStamp()) → today's log          (points stamped today, newest first)
+  → re-renders on vault create/delete/rename + metadataCache changed
+```
+
+`buildAreaForest` (pure, in `tally.ts`) nests areas under their `UNDER` parents, siblings ordered by the ranked total list, and is diamond/cycle-safe (per-path visited set). `loadPointsPanel` does one graph load per render, feeding both the totals (display) and the forest. Coloring is driven off that forest: a hue is assigned per **root** only (`hueFor` by root rank), then walked down so every sub-area inherits its top-level ancestor's hue — the big picture rolls each point up into its root's color, and the legend swatch is drawn only on root rows. This keeps the palette to the count of top-level areas so trends stay distinguishable. The panel's *reads* are pure; its *writes* go through the shell methods above.
+
+Still to build (deferred): in-note area dashboards, a "relate" cross-link affordance on area/point notes (Journey #3), re-parenting an *existing* area (only new/typed sub-areas today), and the `appendEdge` → `Vault.process` migration.
 
 ## Risks
 

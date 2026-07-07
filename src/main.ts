@@ -33,11 +33,15 @@ import {
 } from './relate/relate';
 import { normalizeEdgeType, RELATES_TO_EDGE } from './edge';
 import { CortexView, CORTEX_VIEW_TYPE } from './object/cortex-view';
+import { PointsBook, PointsCycleError } from './points/points';
+import { AreaNameModal } from './points/area-name-modal';
+import { PointsView, POINTS_VIEW_TYPE } from './points/points-view';
 
 export default class LarrysBrainPlugin extends Plugin {
 	settings!: LarrysBrainSettings;
 	private index!: SearchIndex;
 	private memoryWeb!: MemoryWeb;
+	private points!: PointsBook;
 
 	async onload() {
 		await this.loadSettings();
@@ -49,6 +53,7 @@ export default class LarrysBrainPlugin extends Plugin {
 			: null;
 		this.index = new SearchIndex(this.app, snapshotPath);
 		this.memoryWeb = new MemoryWeb(this.app, this.index);
+		this.points = new PointsBook(this.app);
 		// Defer the one full scan until Obsidian's own cache is warm so startup
 		// stays light; afterwards only changed files are re-read.
 		this.app.workspace.onLayoutReady(() => void this.index.build());
@@ -120,6 +125,20 @@ export default class LarrysBrainPlugin extends Plugin {
 			callback: () => this.openRemember(),
 		});
 
+		// The Points panel: a dockable "where focus went" view, sibling to Cortex,
+		// and the plugin's only front door for spending points — the legend rows
+		// spend and file sub-areas in one click. The ribbon matters on mobile,
+		// where there is no command palette.
+		this.registerView(POINTS_VIEW_TYPE, (leaf) => new PointsView(leaf, this));
+		this.addRibbonIcon('target', 'Open points', () => {
+			void this.activatePoints();
+		});
+		this.addCommand({
+			id: 'open-points',
+			name: 'Open points',
+			callback: () => void this.activatePoints(),
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new LarrysBrainSettingTab(this.app, this));
 	}
@@ -134,6 +153,23 @@ export default class LarrysBrainPlugin extends Plugin {
 		if (!leaf) {
 			leaf = workspace.getRightLeaf(false);
 			await leaf?.setViewState({ type: CORTEX_VIEW_TYPE, active: true });
+		}
+		if (leaf) {
+			await workspace.revealLeaf(leaf);
+		}
+	}
+
+	/**
+	 * Reveal the Points panel in the right sidebar, reusing an existing leaf so
+	 * repeated activations don't stack panels. Mirrors {@link activateCortex}.
+	 */
+	private async activatePoints(): Promise<void> {
+		const { workspace } = this.app;
+		let leaf: WorkspaceLeaf | null =
+			workspace.getLeavesOfType(POINTS_VIEW_TYPE)[0] ?? null;
+		if (!leaf) {
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: POINTS_VIEW_TYPE, active: true });
 		}
 		if (leaf) {
 			await workspace.revealLeaf(leaf);
@@ -250,6 +286,84 @@ export default class LarrysBrainPlugin extends Plugin {
 					new Notice('Move to domain: failed to migrate kind.');
 				});
 		}).open();
+	}
+
+	/**
+	 * Spend a point on an existing area, in one click from the Points panel's
+	 * legend. Reports the area's live total — derived from the link graph, never a
+	 * stored counter. The panel re-renders itself off the note the spend creates.
+	 */
+	spendPointOnArea(name: string): void {
+		this.points
+			.spendPoint(name)
+			.then(({ area, total }) => {
+				new Notice(`+1 on ${area.basename} · ${total} total`);
+			})
+			.catch((err: unknown) => {
+				console.error('Spend a point: failed to spend point', err);
+				new Notice('Spend a point: failed to spend point.');
+			});
+	}
+
+	/**
+	 * Create a top-level area from the Points panel's "New area" button. Prompts
+	 * for a name, then creates the hub (or reports it already exists — a folded
+	 * name match, so a casing slip can't fork a duplicate).
+	 */
+	createNewArea(): void {
+		new AreaNameModal(
+			this.app,
+			{ title: 'New area', placeholder: 'Dishes', cta: 'Create' },
+			(name) => {
+				this.points
+					.createTopLevelArea(name)
+					.then(({ area, createdArea }) => {
+						new Notice(
+							createdArea
+								? `Created area "${area.basename}".`
+								: `Area "${area.basename}" already exists.`,
+						);
+					})
+					.catch((err: unknown) => {
+						console.error('Points: failed to create area', err);
+						new Notice('Points: failed to create area.');
+					});
+			},
+		).open();
+	}
+
+	/**
+	 * File a new sub-area under `parentName`, from a legend row's sub-area button.
+	 * Prompts for the child's name, then appends the `UNDER` edge so the child's
+	 * points roll up into the parent. Refuses (and reports) an edge that would make
+	 * an area its own ancestor rather than corrupting the graph.
+	 */
+	addSubArea(parentName: string): void {
+		new AreaNameModal(
+			this.app,
+			{
+				title: `New sub-area of ${parentName}`,
+				placeholder: 'Pots',
+				cta: 'File under',
+			},
+			(name) => {
+				this.points
+					.addSubArea(parentName, name)
+					.then(({ child }) => {
+						new Notice(`Filed "${child.basename}" under "${parentName}".`);
+					})
+					.catch((err: unknown) => {
+						if (err instanceof PointsCycleError) {
+							new Notice(
+								`Can't file "${err.child}" under "${err.parent}" — it's already above it.`,
+							);
+							return;
+						}
+						console.error('Points: failed to file sub-area', err);
+						new Notice('Points: failed to file sub-area.');
+					});
+			},
+		).open();
 	}
 
 	private openRemember(): void {
