@@ -17,7 +17,7 @@ Everything is a **note**. The user captures raw thoughts (**Larry Write** → du
 ```
 src/
   main.ts                 # shell: commands, vault-event wiring, modal orchestration
-  settings.ts             # settings interface + tab (tag, titleSuffix, recentEdgeTypes, preferredSetView)
+  settings.ts             # settings interface + tab (tag, titleSuffix, recentEdgeTypes, preferredSetView, pointsBigPictureOnly)
   meta.ts                 # `larrys-meta` tag/folder convention; tag normalization
   edge.ts                 # typed-edge syntax `TYPE: [[Target]]`; appendEdge (idempotent)
   memory-note.ts          # #search / dump note contents + recognition
@@ -106,7 +106,7 @@ Pure core:
 
 - `points/constants.ts` — owns the literals: `#points/area` / `#points/point` tags, `UNDER` / `ON` edge types, folders, and `normalizeAreaName` (case/whitespace-folded matching key). **Layout call:** point events live under `larrys-meta/points/` (excluded from search by `isInMetaFolder`); area hubs live in a searchable `points/` folder. GOAL.md's prose files both under the meta tree, but that conflicts with its stronger "keep area notes searchable" rule, so areas sit outside it — no `search-index.ts` change needed.
 - `points/tally.ts` — the tally walk, pure and unit-tested. `buildGraph(under, on)` indexes edges; `tallyFor`/`tallyAll` count distinct points `ON` an area or any descendant reachable *downward* through `UNDER`. Diamond-safe (dedupe by point id) and cycle-safe (visited set). Tallies are derived, never stored.
-- `points/note.ts` — the area/point note schema (frontmatter + tags + the point's baked-in `ON` edge) and tag recognizers, pure like `memory-note.ts`.
+- `points/note.ts` — the area/point note schema (frontmatter + tags + the point's baked-in `ON` edge) and tag recognizers, pure like `memory-note.ts`. Frontmatter carries `date`/`tags`/`source` like the other note kinds; a `NoteMeta` override (`{ source, date }`, defaulting to `user` + today) lets a bulk import stamp `source: migration` and preserve historical dates.
 - `edge.ts` `parseEdgeTargets(text, type)` — pure inverse of `buildEdgeLine`; reads edge targets back out of a note *body* (edges aren't in frontmatter, so the link cache can't type them). This is what lets the graph be assembled from text.
 
 The **Points panel** (`points/points-view.ts`) is the single front door — it both *shows* focus and is where you spend points and parent areas. There is no separate spend command/modal; the `target` ribbon / "Open points" command opens the panel, and its legend rows do the writing.
@@ -144,6 +144,10 @@ PointsView.render (one loadPointsPanel(app) → { totals, graph })   [points/gra
   └─ listTodaysPoints(app, makeDateStamp()) → today's log          (points stamped today, newest first)
   → re-renders on vault create/delete/rename + metadataCache changed
 ```
+
+A header toggle (`pointsBigPictureOnly` in settings, so it survives a reload) collapses the panel to **the big picture alone**. It's an overview, not a workspace: everything else drops — the legend, today's log, *and* the "New area" button — leaving no write affordance on screen, since spending and filing live on the legend rows the mode hides. `render` returns early in that mode rather than threading a flag through each section.
+
+Points are ordered by their **stamped `date`**, with mtime only breaking ties inside a day (`pointDay` in `graph-source.ts`). mtime alone is not when a point was spent — editing a point later moves its mtime but not its stamp, which would slide it forward into the wrong era of the big picture. Notes written by the CLI import carry `source: migration` and their original date, which is exactly the case mtime gets wrong.
 
 `buildAreaForest` (pure, in `tally.ts`) nests areas under their `UNDER` parents, siblings ordered by the ranked total list, and is diamond/cycle-safe (per-path visited set). `loadPointsPanel` does one graph load per render, feeding both the totals (display) and the forest. Coloring is driven off that forest: a hue is assigned per **root** only (`hueFor` by root rank), then walked down so every sub-area inherits its top-level ancestor's hue — the big picture rolls each point up into its root's color, and the legend swatch is drawn only on root rows. This keeps the palette to the count of top-level areas so trends stay distinguishable. The panel's *reads* are pure; its *writes* go through the shell methods above.
 

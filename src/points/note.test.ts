@@ -30,6 +30,24 @@ describe('buildPointNoteContents', () => {
 	});
 });
 
+describe('frontmatter source and date', () => {
+	it('defaults to source: user (app-created notes)', () => {
+		expect(buildAreaNoteContents('Dishes')).toContain('source: user');
+		expect(buildPointNoteContents('Dishes')).toContain('source: user');
+	});
+
+	it('honors an overridden source and date (CLI import)', () => {
+		const meta = { source: 'migration', date: '2026-07-03' };
+		const area = buildAreaNoteContents('Dishes', meta);
+		expect(area).toContain('source: migration');
+		expect(area).toContain('date: 2026-07-03');
+
+		const point = buildPointNoteContents('Dishes', meta);
+		expect(point).toContain('source: migration');
+		expect(point).toContain('date: 2026-07-03');
+	});
+});
+
 describe('recognizers', () => {
 	it('tells areas and points apart by their tag', () => {
 		const area = { tags: [AREA_TAG] };

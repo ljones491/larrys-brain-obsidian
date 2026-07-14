@@ -17,25 +17,44 @@ import { AREA_TAG, ON_EDGE, POINT_TAG } from './constants';
 /** Frontmatter field names, shared by the builders and the recognizers. */
 const FIELD_DATE = 'date';
 const FIELD_TAGS = 'tags';
+const FIELD_SOURCE = 'source';
+
+/** Origin of a points note when created through the app (see `memory-note.ts`). */
+const SOURCE_USER = 'user';
 
 /**
- * Build the initial contents of an **area** hub note: frontmatter with the date
- * and `#points/area` tag, then a heading. No edges — parentage (`UNDER`) is
- * added later through the organize path, and points link *in* rather than out.
+ * Overrides for how a points note's frontmatter is stamped. Both default to the
+ * app's behavior (today's date, `source: user`); the CLI import overrides them to
+ * preserve a point's original date and mark the note `source: migration`.
  */
-export function buildAreaNoteContents(name: string): string {
-	return `${frontmatter(AREA_TAG)}# ${name}\n`;
+export interface NoteMeta {
+	/** Origin recorded in `source`. Defaults to `user` (app-created). */
+	source?: string;
+	/** `YYYY-MM-DD` date stamp. Defaults to today; set when importing history. */
+	date?: string;
+}
+
+/**
+ * Build the initial contents of an **area** hub note: frontmatter with the date,
+ * `#points/area` tag, and source, then a heading. No edges — parentage (`UNDER`)
+ * is added later through the organize path, and points link *in* rather than out.
+ */
+export function buildAreaNoteContents(name: string, meta: NoteMeta = {}): string {
+	return `${frontmatter(AREA_TAG, meta)}# ${name}\n`;
 }
 
 /**
  * Build the initial contents of a **point** event note: frontmatter with the
- * date and `#points/point` tag, then the single `ON: [[Area]]` edge that lands
- * it on its area. Tiny by design — the note's whole payload is the edge and its
- * timestamp. It can still be linked out to whatever prompted it, by hand or
+ * date, `#points/point` tag, and source, then the single `ON: [[Area]]` edge that
+ * lands it on its area. Tiny by design — the note's whole payload is the edge and
+ * its timestamp. It can still be linked out to whatever prompted it, by hand or
  * through the relate affordance, later.
  */
-export function buildPointNoteContents(areaBasename: string): string {
-	return `${frontmatter(POINT_TAG)}${buildEdgeLine(ON_EDGE, areaBasename)}\n`;
+export function buildPointNoteContents(
+	areaBasename: string,
+	meta: NoteMeta = {},
+): string {
+	return `${frontmatter(POINT_TAG, meta)}${buildEdgeLine(ON_EDGE, areaBasename)}\n`;
 }
 
 /**
@@ -68,13 +87,14 @@ function hasTag(
 	return Array.isArray(tags) ? tags.includes(tag) : tags === tag;
 }
 
-/** Build a YAML frontmatter block: the date and a single tag. */
-function frontmatter(tag: string): string {
+/** Build a YAML frontmatter block: the date, a single tag, and the source. */
+function frontmatter(tag: string, meta: NoteMeta = {}): string {
 	return [
 		'---',
-		`${FIELD_DATE}: ${makeDateStamp()}`,
+		`${FIELD_DATE}: ${meta.date ?? makeDateStamp()}`,
 		`${FIELD_TAGS}:`,
 		`  - ${tag}`,
+		`${FIELD_SOURCE}: ${meta.source ?? SOURCE_USER}`,
 		'---',
 		'',
 	].join('\n');
