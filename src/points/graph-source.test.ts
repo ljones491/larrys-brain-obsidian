@@ -153,6 +153,34 @@ describe('listPoints', () => {
 		]);
 		expect(listPoints(app)).toEqual([]);
 	});
+
+	it('orders by the stamped date, not mtime, so an edited point keeps its place', () => {
+		// `edited` was spent first but touched later (an edit, or an import rewriting
+		// it), so its mtime is the newest of the three. It still belongs on 07-03.
+		const app = fakeApp([
+			{ path: 'p/later.md', date: '2026-07-06', tag: POINT_TAG, link: 'Chores', mtime: 200 },
+			{ path: 'p/edited.md', date: '2026-07-03', tag: POINT_TAG, link: 'Dishes', mtime: 900 },
+			{ path: 'p/mid.md', date: '2026-07-06', tag: POINT_TAG, link: 'Dishes', mtime: 100 },
+		]);
+		// Within 07-06, mtime still breaks the tie: mid (100) before later (200).
+		expect(listPoints(app).map((p) => p.file.path)).toEqual([
+			'p/edited.md',
+			'p/mid.md',
+			'p/later.md',
+		]);
+	});
+
+	it("falls back to the mtime's day for a point with no date stamp", () => {
+		const day = (iso: string) => new Date(`${iso}T12:00:00`).getTime();
+		const app = fakeApp([
+			{ path: 'p/stamped.md', date: '2026-07-06', tag: POINT_TAG, link: 'Dishes', mtime: day('2026-07-09') },
+			{ path: 'p/unstamped.md', tag: POINT_TAG, link: 'Chores', mtime: day('2026-07-04') },
+		]);
+		expect(listPoints(app).map((p) => p.file.path)).toEqual([
+			'p/unstamped.md',
+			'p/stamped.md',
+		]);
+	});
 });
 
 describe('listTodaysPoints', () => {

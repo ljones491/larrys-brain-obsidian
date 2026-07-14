@@ -78,9 +78,12 @@ export function stripTitleSuffix(baseName: string, suffix: string): string {
 	return baseName.slice(0, -tail.length);
 }
 
-/** The date a note was written, e.g. `2026-06-18`. */
-export function makeDateStamp(): string {
-	const now = new Date();
+/**
+ * The date a note was written, e.g. `2026-06-18`. Defaults to today; pass an
+ * instant to stamp that day instead (e.g. to read a file's mtime back as the
+ * day it belongs to).
+ */
+export function makeDateStamp(now: Date = new Date()): string {
 	const pad = (n: number) => String(n).padStart(2, '0');
 	return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }

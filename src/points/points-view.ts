@@ -25,8 +25,9 @@ export const POINTS_VIEW_TYPE = 'larrys-brain-points-view';
  * mapping each color to its area and total, indented by `UNDER` parentage, where
  * each row spends a point or files a sub-area in one click; and **Today**'s log.
  *
- * A header toggle collapses the panel to a big-picture-only overview (hiding the
- * legend and today), persisted in settings so the choice survives reloads.
+ * A header toggle collapses the panel to a big-picture-only overview — nothing but
+ * the mass of color, with the New area button, the legend, and today's log all
+ * hidden — persisted in settings so the choice survives reloads.
  *
  * Totals are derived on the spot from the link graph — no tally is ever stored.
  * The reads are read-only (clicking a name opens its note); the writes (spend,
@@ -107,13 +108,18 @@ export class PointsView extends ItemView {
 		};
 		forest.forEach((root, i) => assignHue(root, hueFor(i, forest.length)));
 
+		// Big-picture-only mode is a pure overview: everything but the mass of color
+		// drops away, including the write affordances (New area, and the legend's
+		// spend / sub-area buttons). Toggle back to the full panel to spend or file.
+		if (this.plugin.settings.pointsBigPictureOnly) {
+			this.renderBigPicture(container, hueByArea, spent.length === 0);
+			return;
+		}
+
 		this.renderNewArea(container);
 		this.renderBigPicture(container, hueByArea, spent.length === 0);
-		// Big-picture-only mode drops the legend and today's log for a compact overview.
-		if (!this.plugin.settings.pointsBigPictureOnly) {
-			this.renderLegend(container, totals, forest, hueByArea, rootIds);
-			this.renderToday(container);
-		}
+		this.renderLegend(container, totals, forest, hueByArea, rootIds);
+		this.renderToday(container);
 	}
 
 	/** Reflect the current mode in the header toggle's icon and label. */

@@ -1,5 +1,6 @@
 import type { App, CachedMetadata, TFile } from 'obsidian';
 import { parseEdgeTargets } from '../edge';
+import { makeDateStamp } from '../utils/notes';
 import {
 	buildGraph,
 	tallyFor,
@@ -176,7 +177,7 @@ export interface PointEntry {
 	area: string;
 	/** The `date` frontmatter stamp (`YYYY-MM-DD`), when present as a string. */
 	date: string | undefined;
-	/** Modification time, for chronological ordering and the time of day. */
+	/** Modification time: the time of day, and the tiebreak within a stamped day. */
 	when: number;
 }
 
@@ -193,11 +194,25 @@ function pointAreaLink(cache: CachedMetadata | null): string | undefined {
 }
 
 /**
+ * The day a point belongs to: its stamped `date` when it has one, else the day
+ * of its mtime. Both are `YYYY-MM-DD`, so they sort chronologically as strings.
+ */
+function pointDay(point: PointEntry): string {
+	return point.date ?? makeDateStamp(new Date(point.when));
+}
+
+/**
  * Every point note in the vault, oldest first — the chronological spine the
  * panel draws as a line of squares. Recognizes points by tag and reads the
  * `date` frontmatter and the `ON` link target straight from the (warm) metadata
  * cache, so no note bodies are read. A point with no resolvable area is skipped
  * rather than shown blank.
+ *
+ * Ordered by the stamped `date`, with mtime only breaking ties inside a day.
+ * mtime alone is *not* the day a point was spent: editing a point later (or an
+ * import that rewrites one) moves its mtime but not its stamp, which would slide
+ * it forward into the wrong era of the big picture. The stamp is what the point
+ * claims about itself, so it wins.
  */
 export function listPoints(app: App): PointEntry[] {
 	const points: PointEntry[] = [];
@@ -218,7 +233,7 @@ export function listPoints(app: App): PointEntry[] {
 			when: file.stat.mtime,
 		});
 	}
-	points.sort((a, b) => a.when - b.when);
+	points.sort((a, b) => pointDay(a).localeCompare(pointDay(b)) || a.when - b.when);
 	return points;
 }
 
